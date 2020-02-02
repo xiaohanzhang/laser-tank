@@ -1,4 +1,4 @@
-import { get, range } from 'lodash';
+import { get, map, range, sum, chunk } from 'lodash';
 import { createSlice, PayloadAction  } from '@reduxjs/toolkit';
 import { AppThunk } from '../../app/store';
 
@@ -10,7 +10,13 @@ import { saveDataMap } from './consts';
 
 export const BOARD_SIZE = 16;
 
-type SaveData = number[][];
+interface TLEVEL {
+    board: number[][],
+    levelName: string,
+    hint: string,
+    author: string,
+    scoreDifficulty: number,
+}
 interface NextAction {
     cmd: CMD, start: Position
 }
@@ -18,14 +24,24 @@ interface NextAction {
 export type DIRECTION = 'N'|'S'|'W'|'E';
 export type CMD = DIRECTION | 'FIRE' | 'UNDO';
 
+export interface PlayField {
+    board: Board,
+    tank: Position,
+    laser: Position | null,
+    status: Status,
+    pendingTunnels: Position[],
+}
+
 export interface GameState {
     board: Board,
     tank: Position,
     laser: Position | null,
     status: Status,
     pendingTunnels: Position[],
-    timer: number,
     next: NextAction[],
+    timer: number,
+    levels: TLEVEL[],
+    levelIndex: number,
 };
 
 type Status = "WIN" | "FAIL" | "PLAYING"
@@ -36,11 +52,12 @@ const isDirection = (cmd: string): cmd is DIRECTION => {
 
 class DB {
     record: CMD[] = [];
-    history: GameState[] = [];
+    history: PlayField[] = [];
 
     save(state: GameState, cmd: CMD) {
+        const { board, tank, laser, status, pendingTunnels } = state;
         this.record.push(cmd);
-        this.history.push(state);
+        this.history.push({ board, tank, laser, status, pendingTunnels });
     }
 }
 
@@ -60,18 +77,29 @@ const initialState: GameState = {
     pendingTunnels: [],
     timer: 0,
     next: [],
+    levels: [],
+    levelIndex: 0,
 };
 
 const gameSlice = createSlice({
     name: 'game',
     initialState,
     reducers: {
-        loadLevel(state, action: PayloadAction<SaveData>) {
-            const { tank } = state;
+        loadLevels(state, action: PayloadAction<TLEVEL[]>) {
+            state.levels = action.payload;
+        },
+        loadLevel(state, action: PayloadAction<number>) {
+            const { tank, levels } = state;
+            const levelIndex = action.payload;
+            const level = get(levels, [levelIndex]);
+            if (!level) {
+                return;
+            }
             const colors = getColors(9);
             colors.shift(); // old lasertank doesn't use back tunnels
 
-            state.board = action.payload.map((row, i) => {
+            state.levelIndex = levelIndex;
+            state.board = level.board.map((row, i) => {
                 return row.map((cell, j): Tile => {
                     if (cell === 1) {
                         tank.x = j;
@@ -95,6 +123,7 @@ const gameSlice = createSlice({
                     };
                 });
             });
+            state.timer += 1;
         },
         changeDirection(state, action: PayloadAction<DIRECTION>) {
             state.tank.direction = action.payload;
@@ -150,8 +179,11 @@ const gameSlice = createSlice({
             }
             state.timer += 1
         },
-        undo() {
-            return db.history.pop();
+        undo(state) {
+            return {
+                ...state,
+                ...(db.history.pop()),
+            };
         },
         moveTank(state, action: PayloadAction<DIRECTION>) {
             const { tank } = state;
@@ -219,14 +251,18 @@ const gameSlice = createSlice({
 });
 
 export const {
-    loadLevel, move, fire, undo, changeDirection, startCycle, finishCycle, renderFrame, moveTank
+    loadLevel, loadLevels, move, fire, undo, changeDirection, startCycle, finishCycle, renderFrame, moveTank
 } = gameSlice.actions;
 
-export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
+export const exec = (cmd: string): AppThunk => (dispatch, getState) => {
     const { game } = getState();
-    const { tank, board, status, next } = game;
+    const { tank, board, status, next, levelIndex } = game;
     if (cmd === 'UNDO') {
         dispatch(undo());
+    } else if (cmd === 'NEXT_LEVEL') {
+        dispatch(loadLevel(levelIndex + 1));
+    } else if (cmd === 'PREV_LEVEL') {
+        dispatch(loadLevel(levelIndex - 1));
     } else if (next.length === 0 && status === 'PLAYING') {
         const target = nextPosition(tank);
         if (cmd === 'FIRE') {
@@ -243,6 +279,35 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
             }
         }
     }
+};
+
+export const openDataFile = (buffer: ArrayBuffer): AppThunk => (dispatch) => {
+    const tLevel = {
+        board: 16 * 16,
+        levelName: 31,
+        hint: 256,
+        author: 31,
+        scoreDifficulty: 2,
+    }; // 576
+    const sizeOfTLevel = sum(Object.values(tLevel));
+
+    const levels = map(range(Math.floor(buffer.byteLength / sizeOfTLevel)), (i): TLEVEL => {
+        let cursor = sizeOfTLevel * i;
+        const data: any = {};
+        map(tLevel, (size, key) => {
+            data[key] = buffer.slice(cursor, cursor + size);
+            cursor += size;
+        });
+        return {
+            board: chunk(Array.from(new Uint8Array(data.board)), 16),
+            levelName: String.fromCharCode.apply(null, Array.from(new Uint8Array(data.levelName))),
+            hint: String.fromCharCode.apply(null, Array.from(new Uint8Array(data.hint))),
+            author: String.fromCharCode.apply(null, Array.from(new Uint8Array(data.author))),
+            scoreDifficulty: new Uint16Array(data.scoreDifficulty)[0],
+        }
+    });
+    dispatch(loadLevels(levels));
+    dispatch(loadLevel(0));
 };
 
 export default gameSlice.reducer;
