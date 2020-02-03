@@ -1,9 +1,9 @@
-import { map, min, bindAll, debounce } from 'lodash';
+import { map, min, range, bindAll, debounce } from 'lodash';
 import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
 import { RootState } from '../../app/rootReducer';
-import { BOARD_SIZE, CMD, exec, renderFrame, GameState } from './game';
+import { BOARD_SIZE, CMD, exec, renderFrame, GameState, loadLevel } from './game';
 import { Tile, GameBackgrounds, GameObject } from './tiles';
 
 import './Board.css';
@@ -93,21 +93,42 @@ class Board extends React.Component<BoardProps, BoardState> {
         const { game } = this.props;
         const { limit } = this.state;
         const { board, tank, laser } = game;
-        const tileSize = Math.floor(limit / BOARD_SIZE);
+        const tileSize = Math.floor(limit / (BOARD_SIZE + 2));
         const tileStyle = { width: tileSize, height: tileSize };
         return <div ref={this.boardRef} className="Board">
+            <div>
+                {map([
+                    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'
+                ], (letter) => {
+                    return <div style={{ width: tileSize, display: 'inline-block' }}>{letter}</div>
+                })}
+            </div>
             <div style={{
                 width: tileSize * BOARD_SIZE, height: tileSize * BOARD_SIZE, margin: '0 auto'
             }}>
                 {map(board, (row, i) => {
                     return <BoardRow key={i} row={row} tileSize={tileSize}/>
                 })}
+                {map(range(BOARD_SIZE), (i) => {
+                    return <div style={{
+                        position: 'absolute', verticalAlign: 'center', lineHeight: `${tileSize}px`,
+                        left: -tileSize, top: i * tileSize
+                    }}>{i + 1}</div>
+                })}
                 <div className={`tank TANK_${tank.direction}`} style={{ 
                     left: tank.x * tileSize, top: tank.y * tileSize, ...tileStyle
                 }}/>
-                {laser && <div className={`laser ${laser.direction}`} style={{ 
-                    left: laser.x * tileSize, top: laser.y * tileSize, ...tileStyle
-                }}/>}
+                {laser && <div className={`laser ${laser.direction}`} 
+                    style={['N', 'S'].includes(laser.direction) ? { 
+                        left: laser.x * tileSize + (tileSize / 2 - 2), 
+                        top: laser.y * tileSize, 
+                        ...tileStyle, width: 4,
+                    } : {
+                        left: laser.x * tileSize, 
+                        top: laser.y * tileSize + (tileSize / 2 - 1), 
+                        ...tileStyle, height: 4,
+                    }}
+                />}
             </div>
         </div>
     }
@@ -116,7 +137,7 @@ class Board extends React.Component<BoardProps, BoardState> {
 export default () => {
     const game = useSelector((state: RootState) => state.game)
     const dispatch = useDispatch();
-    const { next, status } = game;
+    const { next, status, levelIndex } = game;
     const debounceRenderFrame = debounce(() => {
         return dispatch(renderFrame(null));
     }, 10);
@@ -146,6 +167,12 @@ export default () => {
             debounceRenderFrame();
         }
     }, [debounceRenderFrame, next, status]);
+
+    useEffect(() => {
+        if (status === 'WIN') {
+            dispatch(loadLevel(levelIndex + 1));
+        }
+    }, [dispatch, levelIndex, status])
 
     return <Board game={game}/>
 }

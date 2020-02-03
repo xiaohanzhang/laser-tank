@@ -1,12 +1,11 @@
 ## TODO
-tunnel
 * menu
-    * load level
     * save level
     * save replay
     * upload level
-replay
-map editor
+* replay
+* map editor
+* test tutor levels
 
 ## Basic Rules
 map has 3 layers

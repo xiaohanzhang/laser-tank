@@ -73,24 +73,6 @@
     border: 1px solid black;
 }
 
-.laser.N,
-.laser.S {
-    top: 0;
-    left: 50%;
-    height: 100%;
-    width: 4px;
-    margin-left: -2px;
-}
-
-.laser.W,
-.laser.E {
-    top: 50%;
-    left: 0;
-    height: 4px;
-    width: 100%;
-    margin-top: -2px;
-}
-
 .TANK_N {
     background-image: url("/images/obj00.png");
 }

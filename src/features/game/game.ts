@@ -4,7 +4,7 @@ import { AppThunk } from '../../app/store';
 
 import { getColors } from '../../utils/colors';
 import { 
-    nextPosition, sameCoord, isAvailable, Board, Tile, Position, GameObject, GameBackgrounds
+    nextPosition, sameCoord, isAvailable, Board, Position, GameObject, GameBackgrounds
 } from './tiles';
 import { saveDataMap } from './consts';
 
@@ -87,9 +87,11 @@ const gameSlice = createSlice({
     reducers: {
         loadLevels(state, action: PayloadAction<TLEVEL[]>) {
             state.levels = action.payload;
+            localStorage.setItem('levels', JSON.stringify(action.payload));
+            gameSlice.caseReducers.loadLevel(state, loadLevel(0));
         },
         loadLevel(state, action: PayloadAction<number>) {
-            const { tank, levels } = state;
+            const { tank, board, levels } = state;
             const levelIndex = action.payload;
             const level = get(levels, [levelIndex]);
             if (!level) {
@@ -99,31 +101,33 @@ const gameSlice = createSlice({
             colors.shift(); // old lasertank doesn't use back tunnels
 
             state.levelIndex = levelIndex;
-            state.board = level.board.map((row, i) => {
-                return row.map((cell, j): Tile => {
+            level.board.forEach((row, i) => {
+                return row.forEach((cell, j) => {
                     if (cell === 1) {
-                        tank.x = j;
-                        tank.y = i;
-                        return {
+                        tank.x = i;
+                        tank.y = j;
+                        board[j][i] = {
                             background: GameBackgrounds.DIRT,
                         }
                     } else if (cell > 63 && cell < 72) {
-                        return {
+                        board[j][i] = {
                             color: colors[cell - 64],
                             background: GameBackgrounds.TUNNEL,
                         };
+                    } else {
+                        const result = saveDataMap[cell];
+                        if (!result) {
+                            console.log(cell);
+                        }
+                        board[j][i] = {
+                            background: GameBackgrounds.DIRT,
+                            ...result,
+                        };
                     }
-                    const result = saveDataMap[cell];
-                    if (!result) {
-                        console.log(cell);
-                    }
-                    return {
-                        background: GameBackgrounds.DIRT,
-                        ...result,
-                    };
                 });
             });
             state.timer += 1;
+            state.status = 'PLAYING';
         },
         changeDirection(state, action: PayloadAction<DIRECTION>) {
             state.tank.direction = action.payload;
@@ -183,13 +187,19 @@ const gameSlice = createSlice({
             return {
                 ...state,
                 ...(db.history.pop()),
+                timer: state.timer + 1,
             };
         },
         moveTank(state, action: PayloadAction<DIRECTION>) {
             const { tank } = state;
             const cmd = action.payload;
             if (tank.direction === cmd) {
-                gameSlice.caseReducers.renderFrame(state, renderFrame({ cmd, start: {...tank }}));
+                const from = {...tank};
+                const target = nextPosition(tank);
+                tank.x = target.x;
+                tank.y = target.y;
+                GameObject.handleMove(state, from, target);
+                GameObject.checkTank(state);
             } else {
                 tank.direction = cmd;
             }
@@ -307,7 +317,6 @@ export const openDataFile = (buffer: ArrayBuffer): AppThunk => (dispatch) => {
         }
     });
     dispatch(loadLevels(levels));
-    dispatch(loadLevel(0));
 };
 
 export default gameSlice.reducer;

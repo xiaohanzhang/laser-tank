@@ -57,7 +57,6 @@ export default () => {
             {
                 name: 'Editor', 
                 onClick: () => {
-                    console.log('open editor')
                     setMenu(null);
                 },
             },
@@ -73,7 +72,7 @@ export default () => {
                 className={`MenuBarItem ${name === currentMenu?.menu.name ? 'active ' : ''}`} 
                 onClick={(event) => {
                     const { offsetTop, offsetHeight, offsetLeft } = event.currentTarget;
-                    setMenu({
+                    setMenu(currentMenu ? null : {
                         menu,
                         top: offsetTop + offsetHeight,
                         left: offsetLeft,
