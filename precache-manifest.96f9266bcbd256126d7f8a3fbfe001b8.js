@@ -1,11 +1,11 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "786d1a1f30b0996c2757c45d514741a7",
+    "revision": "44449aba3760de6752df58f1ff867cf2",
     "url": "/laser-tank/index.html"
   },
   {
-    "revision": "b0cd7d2ae78a8b8e94b8",
-    "url": "/laser-tank/static/css/main.5db76f4b.chunk.css"
+    "revision": "a1b517c7692ae8f060d1",
+    "url": "/laser-tank/static/css/main.8c982204.chunk.css"
   },
   {
     "revision": "e10d6820399a70e070f3",
@@ -16,11 +16,15 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/laser-tank/static/js/2.b6a8a6f6.chunk.js.LICENSE"
   },
   {
-    "revision": "b0cd7d2ae78a8b8e94b8",
+    "revision": "a1b517c7692ae8f060d1",
     "url": "/laser-tank/static/js/main.bba56ac4.chunk.js"
   },
   {
     "revision": "84e704454b861e9dd9ee",
     "url": "/laser-tank/static/js/runtime-main.d7c6593c.js"
+  },
+  {
+    "revision": "dde3d91ae630d8e607a3d5f09c2c89dd",
+    "url": "/laser-tank/static/media/control.dde3d91a.png"
   }
 ]);
