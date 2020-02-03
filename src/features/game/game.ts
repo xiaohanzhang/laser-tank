@@ -27,6 +27,7 @@ export type CMD = DIRECTION | 'FIRE' | 'UNDO';
 export interface PlayField {
     board: Board,
     tank: Position,
+    prevTank: Position,
     laser: Position | null,
     status: Status,
     pendingTunnels: Position[],
@@ -35,6 +36,7 @@ export interface PlayField {
 export interface GameState {
     board: Board,
     tank: Position,
+    prevTank: Position,
     laser: Position | null,
     status: Status,
     pendingTunnels: Position[],
@@ -55,9 +57,9 @@ class DB {
     history: PlayField[] = [];
 
     save(state: GameState, cmd: CMD) {
-        const { board, tank, laser, status, pendingTunnels } = state;
+        const { board, tank, prevTank, laser, status, pendingTunnels } = state;
         this.record.push(cmd);
-        this.history.push({ board, tank, laser, status, pendingTunnels });
+        this.history.push({ board, tank, prevTank, laser, status, pendingTunnels });
     }
 }
 
@@ -72,6 +74,7 @@ const initialState: GameState = {
         });
     }),
     tank: {x: 0, y: 0, direction: 'N'}, 
+    prevTank: {x: 0, y: 0, direction: 'N'}, 
     laser: null,
     status: "PLAYING",
     pendingTunnels: [],
@@ -163,26 +166,6 @@ const gameSlice = createSlice({
                 state.laser = null;
             }
         },
-        startCycle(state) {
-            state.next = [];
-        },
-        finishCycle(state) {
-            const { tank } = state;
-            GameObject.checkTank(state);
-            const laser = state.laser;
-            if (laser) {
-                if (sameCoord(laser, tank)) {
-                    state.status = 'FAIL';
-                } else {
-                    const target = nextPosition(laser);
-                    state.next.push({
-                        cmd: 'FIRE',
-                        start: target,
-                    });
-                }
-            }
-            state.timer += 1
-        },
         undo(state) {
             return {
                 ...state,
@@ -196,6 +179,7 @@ const gameSlice = createSlice({
             if (tank.direction === cmd) {
                 const from = {...tank};
                 const target = nextPosition(tank);
+                state.prevTank = from;
                 tank.x = target.x;
                 tank.y = target.y;
                 GameObject.handleMove(state, from, target);
@@ -208,6 +192,7 @@ const gameSlice = createSlice({
         renderFrame(state, action: PayloadAction<NextAction | null>) {
             const { tank, board, next } = state;
             state.next = [];
+            state.prevTank = { ...tank };
             if (action?.payload) {
                 next.push(action.payload);
             }
@@ -261,7 +246,7 @@ const gameSlice = createSlice({
 });
 
 export const {
-    loadLevel, loadLevels, move, fire, undo, changeDirection, startCycle, finishCycle, renderFrame, moveTank
+    loadLevel, loadLevels, move, fire, undo, changeDirection, renderFrame, moveTank
 } = gameSlice.actions;
 
 export const exec = (cmd: string): AppThunk => (dispatch, getState) => {

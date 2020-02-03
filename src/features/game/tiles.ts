@@ -168,7 +168,7 @@ export class GameObject {
         }
     }
 
-    static checkTank(game: GameState) {
+    static checkTank(game: GameState, inSkipping: boolean = false) {
         const { board, tank } = game;
         if (!board[tank.y][tank.x].object) {
             each(['N', 'W', 'E', 'S'], (direction: DIRECTION) => {
@@ -176,7 +176,7 @@ export class GameObject {
                     return this.getObstacle(tile)?.checkTank(game, current);
                 });
             });
-            this.getBackground(board[tank.y][tank.x]).handleTank(game, tank);
+            this.getBackground(board[tank.y][tank.x]).handleTank(game, inSkipping);
         }
     };
 
@@ -385,7 +385,10 @@ class CrystalBlock extends GameObstacle {
 }
 
 class GameBackground extends GameObject {
-    handleTank(game: GameState, position: Position) {}
+    handleTank(game: GameState, inSkipping: boolean) {}
+    shouldSkip(game: GameState) {
+        return false;
+    }
 }
 
 class Dirt extends GameBackground {
@@ -486,6 +489,12 @@ class Ice extends GameBackground {
             start: position,
         });
     }
+
+    shouldSkip(game: GameState) {
+        const { board, prevTank } = game;
+        const prevBackground = GameObject.getBackground(get(board, [prevTank.y, prevTank.x]));
+        return !(prevBackground instanceof Ice);
+    }
 }
 
 class ThinIce extends Ice {
@@ -501,16 +510,30 @@ class TankMoverN extends GameObject {
     css = 'TANK_MOVER_N';
     direction: DIRECTION = 'N';
 
-    handleTank(game: GameState, position: Position) {
-        const { x, y } = position;
+    handleTank(game: GameState, inSkipping: boolean) {
         const { tank } = game;
-        const target = nextPosition({ ...position, direction: this.direction });
+        const { x, y } = tank;
+        const target = nextPosition({ x, y, direction: this.direction });
         if (tank.x === x && tank.y === y && isAvailable(target, game.board)) {
-            game.next.push({
-                cmd: this.direction,
-                start: position,
-            });
+            if (!inSkipping && this.shouldSkip(game)) {
+                game.prevTank = { ...tank };
+                tank.x = target.x;
+                tank.y = target.y;
+                GameObject.handleMove(game, game.prevTank, target);
+                GameObject.checkTank(game, true);
+            } else {
+                game.next.push({
+                    cmd: this.direction,
+                    start: {...tank},
+                });
+            }
         }
+    }
+
+    shouldSkip(game: GameState) {
+        const { board, prevTank } = game;
+        const prevBackground = GameObject.getBackground(get(board, [prevTank.y, prevTank.x]));
+        return !(prevBackground instanceof TankMoverN);
     }
 }
 
