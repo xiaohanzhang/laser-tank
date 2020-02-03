@@ -99,8 +99,8 @@ class Board extends React.Component<BoardProps, BoardState> {
             <div>
                 {map([
                     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'
-                ], (letter) => {
-                    return <div style={{ width: tileSize, display: 'inline-block' }}>{letter}</div>
+                ], (letter, i) => {
+                    return <div key={i} style={{ width: tileSize, display: 'inline-block' }}>{letter}</div>
                 })}
             </div>
             <div style={{
@@ -110,7 +110,7 @@ class Board extends React.Component<BoardProps, BoardState> {
                     return <BoardRow key={i} row={row} tileSize={tileSize}/>
                 })}
                 {map(range(BOARD_SIZE), (i) => {
-                    return <div style={{
+                    return <div key={i} style={{
                         position: 'absolute', verticalAlign: 'center', lineHeight: `${tileSize}px`,
                         left: -tileSize, top: i * tileSize
                     }}>{i + 1}</div>

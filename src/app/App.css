@@ -49,7 +49,7 @@ html, body, #root {
 
 .App .main .control-panel .info {
   flex: 0 0 245px;
-  background-image: url("/images/control.png");
+  background-image: url(../images/control.png);
   background-repeat: no-repeat;
   background-size: contain;
 }
