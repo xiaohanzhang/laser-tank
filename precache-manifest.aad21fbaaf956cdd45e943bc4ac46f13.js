@@ -1,10 +1,10 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "3e8d492062d4e716d2177fbf8f80ae43",
+    "revision": "9aa63e5f1d9ad1d86b032afab154effc",
     "url": "/laser-tank/index.html"
   },
   {
-    "revision": "a2e3d790695c9489c2f1",
+    "revision": "8e85b2a01cde2da5a0e0",
     "url": "/laser-tank/static/css/main.8c982204.chunk.css"
   },
   {
@@ -16,8 +16,8 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/laser-tank/static/js/2.fc4cac4f.chunk.js.LICENSE"
   },
   {
-    "revision": "a2e3d790695c9489c2f1",
-    "url": "/laser-tank/static/js/main.6e17fe2f.chunk.js"
+    "revision": "8e85b2a01cde2da5a0e0",
+    "url": "/laser-tank/static/js/main.391370d2.chunk.js"
   },
   {
     "revision": "84e704454b861e9dd9ee",
