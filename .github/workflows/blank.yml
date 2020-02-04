@@ -16,4 +16,4 @@ jobs:
     - name: Test
       run: |
         yarn install
-        yarn test
+        yarn run github-test
