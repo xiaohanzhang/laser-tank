@@ -44,7 +44,8 @@ export const sameCoord = (p1: Position, p2: Position): boolean => {
     return p1.x === p2.x && p1.y === p2.y; 
 }
 
-const getDirection = (p1: Position, p2: Position): DIRECTION | null => {
+// get direction of p2 relative to p1
+export const getDirection = (p1: Position, p2: Position): DIRECTION | null => {
     if (p1.x !== p2.x || p1.y !== p2.y) {
         if (p1.x === p2.x) {
             return p1.y > p2.y ? 'N': 'S';
@@ -60,9 +61,14 @@ const reverseDirection = (direction: DIRECTION): DIRECTION => {
     return reverseMap[direction];
 }
 
-const fireLasert = (game: GameState, laser: Position) => {
-    if (game.laser === null) {
+const fireLasert = (game: GameState, laser: Position, force: boolean = false) => {
+    if (game.laser === null || force) {
         game.laser = laser;
+        game.laserCount = 0;
+        // TODO: add this to impelemnt odd/even tank bug
+        if (sameCoord(laser, game.tank)) {
+            game.status = 'FAIL';
+        }
     }
 }
 
@@ -171,7 +177,7 @@ export class GameObject {
     static checkTank(game: GameState, inSkipping: boolean = false) {
         const { board, tank } = game;
         if (!board[tank.y][tank.x].object) {
-            each(['N', 'W', 'E', 'S'], (direction: DIRECTION) => {
+            each(['E', 'S', 'W', 'N'], (direction: DIRECTION) => {
                 forEachTile(board, { ...tank, direction }, (tile, current) => {
                     return this.getObstacle(tile)?.checkTank(game, current);
                 });
@@ -223,10 +229,21 @@ class MovableBlock extends GameObstacle {
 
     handleFire(game: GameState, position: Position) {
         super.handleFire(game, position);
-        game.next.push({
-            cmd: position.direction,
-            start: position,
-        });
+        const { board } = game;
+        // TODO: merge this with renderFrame
+        const from = { ...position };
+        const target = nextPosition(from);
+
+        if (isAvailable(target, board)) {
+            board[target.y][target.x].object = board[from.y][from.x].object;
+            delete board[from.y][from.x].object;
+            GameObject.handleMove(game, from, target);
+        }
+        // TODO: next action actually make more sence, because it keep laser speed
+        // game.next.push({
+        //     cmd: position.direction,
+        //     start: {...position},
+        // });
     };
 }
 
@@ -243,15 +260,15 @@ class AntiTankN extends GameObstacle {
         } else {
             game.next.push({
                 cmd: position.direction,
-                start: position,
+                start: {...position},
             });
         }
     }
 
     checkTank(game: GameState, position: Position) {
-        const { tank, laser } = game;
+        const { tank } = game;
         const direction = reverseDirection(this.dead_direction);
-        if (laser === null && getDirection(position, tank) === direction) {
+        if (getDirection(position, tank) === direction) {
             fireLasert(game, nextPosition({
                 ...position,
                 direction,
@@ -321,17 +338,17 @@ class MirrorNW extends GameObstacle {
     hitBack(game: GameState, position: Position) {
         game.next.push({
             cmd: position.direction,
-            start: position,
+            start: {...position},
         });
     }
 
     hitMirror(game: GameState, position: Position) {
         const fire_directions = this.getFireDirections()
         const direction =  this.directions[1 - fire_directions.indexOf(position.direction)];
-        game.laser = {
+        fireLasert(game, {
             ...position,
             direction
-        };
+        }, true);
     }
 }
 
@@ -433,7 +450,7 @@ class Tunnel extends GameBackground {
             return pending;
         });
         if (pending) {
-            pendingTunnels.push(position);
+            pendingTunnels.push({...position});
         }
     }
 
@@ -484,16 +501,29 @@ class Ice extends GameBackground {
     css = 'ICE';
 
     handleMove(game: GameState, position: Position) {
-        game.next.push({
-            cmd: position.direction,
-            start: position,
-        });
+        const { tank, board } = game;
+        const { x, y } = position;
+        const target = nextPosition(position);
+        // TODO: hack for skipping issue, should make this configurable
+        if (tank.x === x && tank.y === y && isAvailable(target, board) && this.shouldSkip(game)) {
+                game.prevTank = { ...tank };
+                tank.x = target.x;
+                tank.y = target.y;
+                GameObject.handleMove(game, game.prevTank, target);
+                GameObject.checkTank(game, false);
+        } else {
+            // TODO: need handle tank skipping. Does obstacle has skipping issue ?
+            game.next.push({
+                cmd: position.direction,
+                start: {...position},
+            });
+        }
     }
 
     shouldSkip(game: GameState) {
         const { board, prevTank } = game;
         const prevBackground = GameObject.getBackground(get(board, [prevTank.y, prevTank.x]));
-        return !(prevBackground instanceof Ice);
+        return !(prevBackground instanceof Ice) && !(prevBackground instanceof TankMoverN);
     }
 }
 
@@ -531,9 +561,9 @@ class TankMoverN extends GameObject {
     }
 
     shouldSkip(game: GameState) {
-        const { board, prevTank } = game;
+        const { board, prevTank, tank } = game;
         const prevBackground = GameObject.getBackground(get(board, [prevTank.y, prevTank.x]));
-        return !(prevBackground instanceof TankMoverN);
+        return sameCoord(prevTank, tank) || !(prevBackground instanceof TankMoverN);
     }
 }
 

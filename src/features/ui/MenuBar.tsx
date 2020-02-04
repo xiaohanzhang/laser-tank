@@ -13,7 +13,6 @@ export default () => {
     const handleFile = (file: File) => {
         const reader = new FileReader();
         reader.onload = (e) => {
-            console.log(e.target?.result);
             if (e.target?.result) {
                 dispatch(openDataFile(e.target?.result as ArrayBuffer));
             }

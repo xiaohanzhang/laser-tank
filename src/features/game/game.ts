@@ -1,10 +1,10 @@
-import { get, map, range, sum, chunk } from 'lodash';
+import { get, each, map, range, sum, chunk, sortBy } from 'lodash';
 import { createSlice, PayloadAction  } from '@reduxjs/toolkit';
 import { AppThunk } from '../../app/store';
 
 import { getColors } from '../../utils/colors';
 import { 
-    nextPosition, sameCoord, isAvailable, Board, Position, GameObject, GameBackgrounds
+    nextPosition, sameCoord, isAvailable, Board, Position, GameObject, GameBackgrounds, getDirection
 } from './tiles';
 import { saveDataMap } from './consts';
 
@@ -38,6 +38,7 @@ export interface GameState {
     tank: Position,
     prevTank: Position,
     laser: Position | null,
+    laserCount: number,
     status: Status,
     pendingTunnels: Position[],
     next: NextAction[],
@@ -50,6 +51,24 @@ type Status = "WIN" | "FAIL" | "PLAYING"
 
 const isDirection = (cmd: string): cmd is DIRECTION => {
     return ['N', 'S', 'W', 'E'].includes(cmd);
+}
+
+const checkLaser = (state: GameState) => {
+    const { laser, laserCount, tank, prevTank } = state;
+    if (laser) {
+        // if (
+        //     sameCoord(laser, tank)
+        //     //  && !(getDirection(tank, prevTank) === laser.direction && laserCount !== 1 && laserCount % 2 === 0)
+        // ) {
+        //     state.status = 'FAIL';
+        // }
+        // else {
+        state.next.push({
+            cmd: 'FIRE',
+            start: nextPosition(laser),
+        });
+        // }
+    }
 }
 
 class DB {
@@ -76,6 +95,7 @@ const initialState: GameState = {
     tank: {x: 0, y: 0, direction: 'N'}, 
     prevTank: {x: 0, y: 0, direction: 'N'}, 
     laser: null,
+    laserCount: 0,
     status: "PLAYING",
     pendingTunnels: [],
     timer: 0,
@@ -88,10 +108,11 @@ const gameSlice = createSlice({
     name: 'game',
     initialState,
     reducers: {
-        loadLevels(state, action: PayloadAction<TLEVEL[]>) {
-            state.levels = action.payload;
-            localStorage.setItem('levels', JSON.stringify(action.payload));
-            gameSlice.caseReducers.loadLevel(state, loadLevel(0));
+        loadLevels(state, action: PayloadAction<{ levels: TLEVEL[], levelIndex: number }>) {
+            const { levels, levelIndex } = action.payload;
+            state.levels = levels;
+            localStorage.setItem('levels', JSON.stringify(levels));
+            gameSlice.caseReducers.loadLevel(state, loadLevel(levelIndex));
         },
         loadLevel(state, action: PayloadAction<number>) {
             const { tank, board, levels } = state;
@@ -100,10 +121,11 @@ const gameSlice = createSlice({
             if (!level) {
                 return;
             }
+            state.levelIndex = levelIndex;
+            localStorage.setItem('levelIndex', JSON.stringify(levelIndex));
             const colors = getColors(9);
             colors.shift(); // old lasertank doesn't use back tunnels
 
-            state.levelIndex = levelIndex;
             level.board.forEach((row, i) => {
                 return row.forEach((cell, j) => {
                     if (cell === 1) {
@@ -135,37 +157,6 @@ const gameSlice = createSlice({
         changeDirection(state, action: PayloadAction<DIRECTION>) {
             state.tank.direction = action.payload;
         },
-        move(state, action: PayloadAction<Position>) {
-            const { x, y } = action.payload;
-            const target = nextPosition(action.payload);
-            const { tank, board } = state;
-            if (isAvailable(target, board)) {
-                if (board[y][x].object) {
-                    board[target.y][target.x].object = board[y][x].object;
-                    delete board[y][x].object;
-                } else if (tank.x === x && tank.y === y) {
-                    tank.x = target.x;
-                    tank.y = target.y;
-                }
-                GameObject.handleMove(state, action.payload, target);
-            }
-        },
-        fire(state, action: PayloadAction<NextAction>) {
-            const { tank, board } = state;
-            const { start } = action.payload;
-            const { x, y } = start;
-            const tile = get(board, [y, x]);
-            if (tile) {
-                if (sameCoord(start, tank)) {
-                    state.status = 'FAIL';
-                } else {
-                    state.laser = start;
-                    GameObject.handleFire(state, start);
-                }
-            } else {
-                state.laser = null;
-            }
-        },
         undo(state) {
             return {
                 ...state,
@@ -184,6 +175,7 @@ const gameSlice = createSlice({
                 tank.y = target.y;
                 GameObject.handleMove(state, from, target);
                 GameObject.checkTank(state);
+                checkLaser(state);
             } else {
                 tank.direction = cmd;
             }
@@ -196,10 +188,24 @@ const gameSlice = createSlice({
             if (action?.payload) {
                 next.push(action.payload);
             }
-            next.forEach((n) => {
+            each(sortBy(next, ({ cmd, start }) => {
+                return cmd === 'FIRE' ? 0 : 
+                    !sameCoord(start, tank) ? 1 :
+                    2
+                ;
+            }), (n) => {
                 const { cmd, start } = n;
                 const { x, y } = start;
                 if (isDirection(cmd)) {
+                    // handleMove:
+                    //  this.getBackground(toTile).handleMove(game, to);
+                    //  this.getBackground(fromTile).handleEmpty(game, from);
+                    // checkTank:
+                    //  this.getObstacle(tankTile)?.checkTank(game, current);  // laser available, check fail
+                    //  this.getBackground(tankTile).handleTank(game, inSkipping);
+                    //      skiping:
+                    //          GameObject.handleMove(game, game.prevTank, target);
+                    //          GameObject.checkTank(game, true);
                     const from = { x, y, direction: cmd };
                     const target = nextPosition(from);
 
@@ -216,29 +222,22 @@ const gameSlice = createSlice({
                 } else if (cmd === 'FIRE') {
                     const tile = get(board, [y, x]);
                     if (tile) {
-                        if (sameCoord(start, tank)) {
+                        state.laser = { ...start };
+                        state.laserCount += 1;
+                        if (sameCoord(state.laser, tank)) {
                             state.status = 'FAIL';
-                        } else {
-                            state.laser = { ...start };
-                            GameObject.handleFire(state, state.laser);
                         }
+                        GameObject.handleFire(state, state.laser);
+                        // }
                     } else {
                         state.laser = null;
                     }
                 }
+                return state.status !== 'FAIL';
             });
-            GameObject.checkTank(state);
-            const laser = state.laser;
-            if (laser) {
-                if (sameCoord(laser, tank)) {
-                    state.status = 'FAIL';
-                } else {
-                    const target = nextPosition(laser);
-                    state.next.push({
-                        cmd: 'FIRE',
-                        start: target,
-                    });
-                }
+            if (state.status !== 'FAIL') {
+                GameObject.checkTank(state);
+                checkLaser(state);
             }
             state.timer += 1
         },
@@ -246,7 +245,7 @@ const gameSlice = createSlice({
 });
 
 export const {
-    loadLevel, loadLevels, move, fire, undo, changeDirection, renderFrame, moveTank
+    loadLevel, loadLevels, undo, changeDirection, renderFrame, moveTank
 } = gameSlice.actions;
 
 export const exec = (cmd: string): AppThunk => (dispatch, getState) => {
@@ -301,7 +300,10 @@ export const openDataFile = (buffer: ArrayBuffer): AppThunk => (dispatch) => {
             scoreDifficulty: new Uint16Array(data.scoreDifficulty)[0],
         }
     });
-    dispatch(loadLevels(levels));
+    dispatch(loadLevels({
+        levels,
+        levelIndex: 0, 
+    }));
 };
 
 export default gameSlice.reducer;
