@@ -4,7 +4,7 @@ import { AppThunk } from '../../app/store';
 
 import { getColors } from '../../utils/colors';
 import { 
-    nextPosition, sameCoord, isAvailable, Board, Position, GameObject, GameBackgrounds, getDirection
+    nextPosition, sameCoord, isAvailable, Board, Position, GameObject, GameBackgrounds, 
 } from './tiles';
 import { saveDataMap } from './consts';
 
@@ -22,7 +22,7 @@ interface NextAction {
 }
 
 export type DIRECTION = 'N'|'S'|'W'|'E';
-export type CMD = DIRECTION | 'FIRE' | 'UNDO';
+export type CMD = DIRECTION | 'FIRE' | 'UNDO' | 'CHECK';
 
 export interface PlayField {
     board: Board,
@@ -53,7 +53,7 @@ const isDirection = (cmd: string): cmd is DIRECTION => {
     return ['N', 'S', 'W', 'E'].includes(cmd);
 }
 
-const checkLaser = (state: GameState) => {
+export const checkLaser = (state: GameState) => {
     const { laser, laserCount, tank, prevTank } = state;
     if (laser) {
         // if (
@@ -190,8 +190,8 @@ const gameSlice = createSlice({
             }
             each(sortBy(next, ({ cmd, start }) => {
                 return cmd === 'FIRE' ? 0 : 
-                    !sameCoord(start, tank) ? 1 :
-                    2
+                    isDirection(cmd) ? (!sameCoord(start, tank) ? 1 : 2) :
+                    3
                 ;
             }), (n) => {
                 const { cmd, start } = n;
@@ -232,6 +232,8 @@ const gameSlice = createSlice({
                     } else {
                         state.laser = null;
                     }
+                } else if (cmd === 'CHECK') {
+                    GameObject.checkTank(state, true);
                 }
                 return state.status !== 'FAIL';
             });

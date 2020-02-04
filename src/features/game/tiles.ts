@@ -491,10 +491,18 @@ class Water extends GameBackground {
             tile.background = GameBackgrounds.MOVABLE_BLOCK_WATER;
         }
         delete tile.object;
-        if (tank.x === x && tank.y === y) {
-            game.status = 'FAIL';
-        }
     };
+
+    handleTank(game: GameState, inSkipping: boolean) {
+        if (inSkipping) {
+            game.status = 'FAIL';
+        } else {
+            game.next.push({
+                cmd: 'CHECK',
+                start: game.tank,
+            });
+        }
+    }
 }
 
 class Ice extends GameBackground {

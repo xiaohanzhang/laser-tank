@@ -5,7 +5,12 @@
     * upload level
 * replay
 * map editor
-* test tutor levels
+* test tutor levels 13
+* swtich level doesn't clean laser
+* undo doesn't fix level number
+* info panel
+* laser should kill tank while it on top of block
+* on top of block should trigger mover skip
 
 ## Basic Rules
 map has 3 layers
