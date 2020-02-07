@@ -5,12 +5,8 @@
     * upload level
 * replay
 * map editor
-* test tutor levels 13
-* swtich level doesn't clean laser
-* undo doesn't fix level number
-* info panel
-* laser should kill tank while it on top of block
-* on top of block should trigger mover skip
+* test tutor levels 29 
+* status = WIN should stop rendering
 
 ## Basic Rules
 map has 3 layers
@@ -38,3 +34,6 @@ Tunnel jump order N to S, W to E
 ## Legacy tricks
 first step on mover and ice doesn't count moving time
 move tank | move laser | move other object | checking whether certain conditions have been met 
+
+## refactoring
+styles: classnames

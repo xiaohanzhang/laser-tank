@@ -1,5 +1,5 @@
 import { get, each, findIndex } from 'lodash';
-import {  GameState, DIRECTION, BOARD_SIZE } from './game';
+import {  GameState, DIRECTION, BOARD_SIZE, CMD } from './game';
 
 export enum GameBackgrounds {
     // background
@@ -48,23 +48,27 @@ export const sameCoord = (p1: Position, p2: Position): boolean => {
 export const getDirection = (p1: Position, p2: Position): DIRECTION | null => {
     if (p1.x !== p2.x || p1.y !== p2.y) {
         if (p1.x === p2.x) {
-            return p1.y > p2.y ? 'N': 'S';
+            return p1.y > p2.y ? CMD.UP : CMD.DOWN;
         } else if (p1.y === p2.y) {
-            return p1.x > p2.x ? 'W': 'E';
+            return p1.x > p2.x ? CMD.LEFT : CMD.RIGHT;
         }
     }
     return null;
 } 
 
 const reverseDirection = (direction: DIRECTION): DIRECTION => {
-    const reverseMap: {[key: string]: DIRECTION} = {N: 'S', S: 'N', W: 'E', E: 'W'};
+    const reverseMap: {[key: string]: DIRECTION} = {
+        [CMD.UP]: CMD.DOWN, 
+        [CMD.DOWN]: CMD.UP, 
+        [CMD.LEFT]: CMD.RIGHT, 
+        [CMD.RIGHT]: CMD.LEFT, 
+    };
     return reverseMap[direction];
 }
 
 const fireLasert = (game: GameState, laser: Position, force: boolean = false) => {
     if (game.laser === null || force) {
         game.laser = laser;
-        game.laserCount = 0;
         // TODO: add this to impelemnt odd/even tank bug
         if (sameCoord(laser, game.tank)) {
             game.status = 'FAIL';
@@ -91,10 +95,10 @@ export const isAvailable = (position: Position, board: Board): boolean => {
 export const nextPosition = (position: Position) => {
     const { x, y, direction } = position;
     return {
-        'N': { x, y: y - 1, direction },
-        'S': { x, y: y + 1, direction },
-        'E': { x: x + 1, y, direction },
-        'W': { x: x - 1, y, direction },
+        [CMD.UP]: { x, y: y - 1, direction },
+        [CMD.DOWN]: { x, y: y + 1, direction },
+        [CMD.RIGHT]: { x: x + 1, y, direction },
+        [CMD.LEFT]: { x: x - 1, y, direction },
     }[direction];
 }
 
@@ -112,10 +116,9 @@ export interface Position {
     direction: DIRECTION,
 }
 
-
 export class GameObject {
-    static getBackground(tile: Tile): GameBackground {
-        return new ({
+    static getBackgroundClass(background: GameBackgrounds) {
+        return {
             [GameBackgrounds.FLAG]: Flag,
             [GameBackgrounds.DIRT]: Dirt,
             [GameBackgrounds.WATER]: Water, 
@@ -127,11 +130,11 @@ export class GameObject {
             [GameBackgrounds.TANK_MOVER_E]: TankMoverE,
             [GameBackgrounds.TANK_MOVER_W]: TankMoverW,
             [GameBackgrounds.TUNNEL]: Tunnel,
-        }[tile.background])();
+        }[background];
     }
 
-    static getObstacle(tile: Tile): GameObstacle | null {
-        return !tile.object ? null : new ({
+    static getObstacleClass(obstacle: GameObstacles) {
+        return {
             [GameObstacles.BRICKS]: Bricks,
             [GameObstacles.SOLID_BLOCK]: SolidBlock,
             [GameObstacles.CRYSTAL_BLOCK]: CrystalBlock,
@@ -144,47 +147,120 @@ export class GameObject {
             [GameObstacles.ANTI_TANK_DEAD_S]: AntiTankDeadS,
             [GameObstacles.ANTI_TANK_DEAD_W]: AntiTankDeadW,
             [GameObstacles.ANTI_TANK_DEAD_E]: AntiTankDeadE,
-            [GameObstacles.MIRROR_NW]: MirrorNW, 
-            [GameObstacles.MIRROR_NE]: MirrorNE, 
-            [GameObstacles.MIRROR_SE]: MirrorSE, 
-            [GameObstacles.MIRROR_SW]: MirrorSW, 
-            [GameObstacles.ROTARY_MIRROR_NW]: RotaryMirrorNW, 
-            [GameObstacles.ROTARY_MIRROR_NE]: RotaryMirrorNE, 
-            [GameObstacles.ROTARY_MIRROR_SE]: RotaryMirrorSE, 
-            [GameObstacles.ROTARY_MIRROR_SW]: RotaryMirrorSW, 
-        }[tile.object])();
+            [GameObstacles.MIRROR_NW]: MirrorNW,
+            [GameObstacles.MIRROR_NE]: MirrorNE,
+            [GameObstacles.MIRROR_SE]: MirrorSE,
+            [GameObstacles.MIRROR_SW]: MirrorSW,
+            [GameObstacles.ROTARY_MIRROR_NW]: RotaryMirrorNW,
+            [GameObstacles.ROTARY_MIRROR_NE]: RotaryMirrorNE,
+            [GameObstacles.ROTARY_MIRROR_SE]: RotaryMirrorSE,
+            [GameObstacles.ROTARY_MIRROR_SW]: RotaryMirrorSW,
+        }[obstacle];
     }
 
-    static handleMove(game: GameState, from: Position, to: Position){
-        const { board } = game;
-        const toTile = get(board, [to.y, to.x]);
-        if (toTile) {
-            this.getBackground(toTile).handleMove(game, to);
-            const fromTile = get(board, [from.y, from.x]);
-            if (!fromTile?.object) {
-                this.getBackground(fromTile).handleEmpty(game, from);
+    static getBackground(tile: Tile) {
+        return new (this.getBackgroundClass(tile.background))();
+    }
+
+    static getObstacle(tile: Tile) {
+        return !tile.object ? null : new (this.getObstacleClass(tile.object))();
+    }
+
+    static checkLaser(state: GameState) {
+        const { laser, tank, board } = state;
+        if (laser) {
+            const target = nextPosition(laser);
+            const tile = get(board, [target.y, target.x]);
+            if (tile) {
+                state.laser = target;
+                if (sameCoord(target, tank)) {
+                    state.status = 'FAIL';
+                } else {
+                    this.getObstacle(tile)?.handleLaser(state, target);
+                }
+            } else {
+                state.laser = null;
+            }
+            if (!state.laser) {
+                this.checkFire(state);
             }
         }
-    };
+    }
 
-    static handleFire(game: GameState, position: Position) {
-        const tile = get(game.board, [position.y, position.x]);
-        if (tile) {
-            this.getObstacle(tile)?.handleFire(game, position);
+    static checkPending(game: GameState) {
+        const { board, pending } = game;
+        if (game.status === 'FAIL') {
+            return;
+        }
+        game.pending = [];
+        each(pending, ({ from, to }) => {
+            const toTile = get(board, [to.y, to.x]);
+            this.getBackground(toTile).handleLanding(game, from, to);
+            if (from) {
+                const fromTile = get(board, [from.y, from.x]);
+                if (!fromTile.object) {
+                    this.getBackground(fromTile).handleLeaving(game, from);
+                }
+            }
+            return game.status !== 'FAIL';
+        });
+    }
+
+    static checkTank(game: GameState) {
+        const { board, tank } = game;
+        const tile = board[tank.y][tank.x];
+        if (!tile.object && game.status !== 'FAIL') {
+            this.checkFire(game);
+            this.getBackground(board[tank.y][tank.x]).handleTank(game, false);
         }
     }
 
-    static checkTank(game: GameState, inSkipping: boolean = false) {
+    static checkFire(game: GameState) {
         const { board, tank } = game;
-        if (!board[tank.y][tank.x].object) {
-            each(['E', 'S', 'W', 'N'], (direction: DIRECTION) => {
+        const tile = board[tank.y][tank.x];
+        if (!tile.object && game.status !== 'FAIL') {
+            each([CMD.RIGHT, CMD.DOWN, CMD.LEFT, CMD.UP], (direction: DIRECTION) => {
                 forEachTile(board, { ...tank, direction }, (tile, current) => {
-                    return this.getObstacle(tile)?.checkTank(game, current);
+                    return this.getObstacle(tile)?.sawTank(game, current);
                 });
+                return game.status !== 'FAIL';
             });
-            this.getBackground(board[tank.y][tank.x]).handleTank(game, inSkipping);
         }
-    };
+    }
+
+    static moveTank(game: GameState, to: Position, handle: boolean = false) {
+        const { board, tank } = game;
+        const tile = board[to.y][to.x];
+        const background = GameObject.getBackground(tile);
+        if (isAvailable(to, game.board)) {
+            game.prevTank = { ...tank };
+            tank.x = to.x;
+            tank.y = to.y;
+            game.rendering = true;
+            if (tile.background === GameBackgrounds.TUNNEL) {
+                background.handleTankMove(game);
+            }
+            GameObject.checkFire(game);
+            if (handle && game.status !== 'FAIL') {
+                background.handleTank(game, false);
+            }
+        }
+    }
+    // static handleMove(game: GameState, position: Position){
+    //     const { board, pending } = game;
+    //     const target = nextPosition(position);
+    //     if (isAvailable(target, board)) {
+    //         const targetTile = get(board, [target.y, target.x]);
+    //         const fromTile = board[position.y][position.x];
+    //         targetTile.object = fromTile.object;
+    //         delete fromTile.object;
+
+    //         pending.push(target);
+    //         pending.push(position);
+    //         // this.getBackground(targetTile).handleMove(game, position, target);
+    //         // this.getBackground(fromTile).handleEmpty(game, position);
+    //     }
+    // }
 
     static getObstacleCss(tile: Tile) {
         return this.getObstacle(tile)?.css;
@@ -196,16 +272,33 @@ export class GameObject {
 
     css = '';
 
-    handleMove(game: GameState, position: Position) {};
-    handleEmpty(game: GameState, position: Position) {};
+    handleLeaving(game: GameState, position: Position) {};
+
+    handleMove(game: GameState, from: Position, to: Position | null = null){
+        const { board, pending } = game;
+        const fromTile = board[from.y][from.x];
+        if (!to) {
+            to = nextPosition(from);
+        }
+        if (fromTile.object && isAvailable(to, board)) {
+            const targetTile = get(board, [to.y, to.x]);
+            targetTile.object = fromTile.object;
+            delete fromTile.object;
+
+            pending.push({
+                from,
+                to,
+            });
+        }
+    }
 }
 
 class GameObstacle extends GameObject {
-    handleFire(game: GameState, position: Position) {
+    handleLaser(game: GameState, position: Position) {
         game.laser = null;
     }
 
-    checkTank(game: GameState, position: Position): boolean {
+    sawTank(game: GameState, position: Position): boolean {
         // false means current obstacle already blocked further obstacles seeing tank
         return false;
     }
@@ -214,8 +307,8 @@ class GameObstacle extends GameObject {
 class Bricks extends GameObstacle {
     css = 'BRICKS';
 
-    handleFire(game: GameState, position: Position) {
-        super.handleFire(game, position);
+    handleLaser(game: GameState, position: Position) {
+        super.handleLaser(game, position);
         delete game.board[position.y][position.x].object;
     };
 }
@@ -227,45 +320,27 @@ class SolidBlock extends GameObstacle {
 class MovableBlock extends GameObstacle {
     css = 'MOVABLE_BLOCK';
 
-    handleFire(game: GameState, position: Position) {
-        super.handleFire(game, position);
-        const { board } = game;
-        // TODO: merge this with renderFrame
-        const from = { ...position };
-        const target = nextPosition(from);
-
-        if (isAvailable(target, board)) {
-            board[target.y][target.x].object = board[from.y][from.x].object;
-            delete board[from.y][from.x].object;
-            GameObject.handleMove(game, from, target);
-        }
-        // TODO: next action actually make more sence, because it keep laser speed
-        // game.next.push({
-        //     cmd: position.direction,
-        //     start: {...position},
-        // });
-    };
+    handleLaser(game: GameState, position: Position) {
+        super.handleLaser(game, position);
+        this.handleMove(game, position);
+    }
 }
-
 
 class AntiTankN extends GameObstacle {
     css = 'ANTI_TANK_N';
     dead = GameObstacles.ANTI_TANK_DEAD_N;
-    dead_direction: DIRECTION = 'S';
+    dead_direction: DIRECTION = CMD.DOWN;
 
-    handleFire(game: GameState, position: Position) {
-        super.handleFire(game, position);
+    handleLaser(game: GameState, position: Position) {
+        super.handleLaser(game, position);
         if (position.direction === this.dead_direction) {
             game.board[position.y][position.x].object = this.dead;
         } else {
-            game.next.push({
-                cmd: position.direction,
-                start: {...position},
-            });
+            this.handleMove(game, position);
         }
     }
 
-    checkTank(game: GameState, position: Position) {
+    sawTank(game: GameState, position: Position): boolean {
         const { tank } = game;
         const direction = reverseDirection(this.dead_direction);
         if (getDirection(position, tank) === direction) {
@@ -274,26 +349,26 @@ class AntiTankN extends GameObstacle {
                 direction,
             }));
         }
-        return super.checkTank(game, position);
+        return super.sawTank(game, position);
     }
 }
 
 class AntiTankS extends AntiTankN {
     css = 'ANTI_TANK_S';
     dead = GameObstacles.ANTI_TANK_DEAD_S;
-    dead_direction: DIRECTION = 'N';
+    dead_direction: DIRECTION = CMD.UP;
 }
 
 class AntiTankE extends AntiTankN {
     css = 'ANTI_TANK_E';
     dead = GameObstacles.ANTI_TANK_DEAD_E;
-    dead_direction: DIRECTION = 'W';
+    dead_direction: DIRECTION = CMD.LEFT;
 }
 
 class AntiTankW extends AntiTankN {
     css = 'ANTI_TANK_W';
     dead = GameObstacles.ANTI_TANK_DEAD_W;
-    dead_direction: DIRECTION = 'E';
+    dead_direction: DIRECTION = CMD.RIGHT;
 }
 
 class AntiTankDeadN extends GameObstacle {
@@ -314,9 +389,9 @@ class AntiTankDeadE extends GameObstacle {
 
 class MirrorNW extends GameObstacle {
     css = 'MIRROR_NW';
-    directions: DIRECTION[] = ['N', 'W'];
-    handleFire(game: GameState, position: Position) {
-        super.handleFire(game, position);
+    directions: DIRECTION[] = [CMD.UP, CMD.LEFT];
+    handleLaser(game: GameState, position: Position) {
+        super.handleLaser(game, position);
         const index = this.directions.indexOf(position.direction);
         if (index !== -1) {
             this.hitBack(game, position);
@@ -326,20 +401,14 @@ class MirrorNW extends GameObstacle {
     }
 
     getFireDirections(): DIRECTION[] {
-        const directionMap: {[key: string]: DIRECTION} = {
-            'N': 'S', 'S': 'N', 'W': 'E', 'E': 'W'
-        };
         return [
-            directionMap[this.directions[0]],
-            directionMap[this.directions[1]],
+            reverseDirection(this.directions[0]),
+            reverseDirection(this.directions[1]),
         ]
     }
 
     hitBack(game: GameState, position: Position) {
-        game.next.push({
-            cmd: position.direction,
-            start: {...position},
-        });
+        this.handleMove(game, position);
     }
 
     hitMirror(game: GameState, position: Position) {
@@ -354,22 +423,22 @@ class MirrorNW extends GameObstacle {
 
 class MirrorNE extends MirrorNW {
     css = 'MIRROR_NE';
-    directions: DIRECTION[] = ['N', 'E'];
+    directions: DIRECTION[] = [CMD.UP, CMD.RIGHT];
 }
 
 class MirrorSE extends MirrorNW {
     css = 'MIRROR_SE';
-    directions: DIRECTION[] = ['S', 'E'];
+    directions: DIRECTION[] = [CMD.DOWN, CMD.RIGHT];
 }
 
 class MirrorSW extends MirrorNW {
     css = 'MIRROR_SW';
-    directions: DIRECTION[] = ['S', 'W'];
+    directions: DIRECTION[] = [CMD.DOWN, CMD.LEFT];
 }
 
 class RotaryMirrorNW extends MirrorNW {
     css = 'ROTARY_MIRROR_NW';
-    directions: DIRECTION[] = ['N', 'W'];
+    directions: DIRECTION[] = [CMD.UP, CMD.LEFT];
     next_direction = GameObstacles.ROTARY_MIRROR_NE;
 
     hitBack(game: GameState, position: Position) {
@@ -380,30 +449,32 @@ class RotaryMirrorNW extends MirrorNW {
 
 class RotaryMirrorNE extends RotaryMirrorNW {
     css = 'ROTARY_MIRROR_NE';
-    directions: DIRECTION[] = ['N', 'E'];
+    directions: DIRECTION[] = [CMD.UP, CMD.RIGHT];
     next_direction = GameObstacles.ROTARY_MIRROR_SE;
 }
 
 class RotaryMirrorSE extends RotaryMirrorNW {
     css = 'ROTARY_MIRROR_SE';
-    directions: DIRECTION[] = ['S', 'E'];
+    directions: DIRECTION[] = [CMD.DOWN, CMD.RIGHT];
     next_direction = GameObstacles.ROTARY_MIRROR_SW;
 }
 
 class RotaryMirrorSW extends RotaryMirrorNW {
     css = 'ROTARY_MIRROR_SW';
-    directions: DIRECTION[] = ['S', 'W'];
+    directions: DIRECTION[] = [CMD.DOWN, CMD.LEFT];
     next_direction = GameObstacles.ROTARY_MIRROR_NW;
 }
 
 class CrystalBlock extends GameObstacle {
     css = 'CRYSTAL_BLOCK';
-    handleFire(game: GameState, position: Position) { }
+    handleLaser(game: GameState, position: Position) { }
 }
 
 class GameBackground extends GameObject {
+    handleLanding(game: GameState, from: Position, to: Position) {}
     handleTank(game: GameState, inSkipping: boolean) {}
-    shouldSkip(game: GameState) {
+    handleTankMove(game: GameState) {}
+    shouldSkip(game: GameState, position: Position): boolean {
         return false;
     }
 }
@@ -423,47 +494,73 @@ const sameKindTunnel = (t1: Tile, t2: Tile) => {
 class Tunnel extends GameBackground {
     css = 'TUNNEL';
 
-    handleMove(game: GameState, position: Position) {
-        const { board, tank, pendingTunnels } = game;
-        const tunnel = board[position.y][position.x];
-        const haveTank = sameCoord(position, tank);
-        let pending = true;
+    handleLanding(game: GameState, from: Position, to: Position) {
+        super.handleLanding(game, from, to);
+        const { board } = game;
+        const tunnel = board[to.y][to.x];
+        let pendingTunnel = true;
         each(board, (row, y) => {
             each(row, (tile, x) => {
                 if (
                     sameKindTunnel(tile, tunnel) && 
-                    !sameCoord(position, {x, y, direction: 'N'}) &&
+                    !sameCoord(to, {x, y, direction: CMD.UP}) &&
                     !tile.object
                 ) {
-                    if (tunnel.object) {
-                        tile.object = tunnel.object;
-                        delete tunnel.object;
-                        pending = false;
-                    } else if (haveTank) {
-                        tank.x = x;
-                        tank.y = y;
-                        pending = false;
-                    }
-                    return pending;
+                    tile.object = tunnel.object;
+                    delete tunnel.object;
+                    pendingTunnel = false;
+                    return pendingTunnel;
                 }
             });
-            return pending;
+            return pendingTunnel;
         });
-        if (pending) {
-            pendingTunnels.push({...position});
+        if (pendingTunnel) {
+            game.pendingTunnels.push(to);
         }
     }
 
-    handleEmpty(game: GameState, position: Position) { 
-        super.handleEmpty(game, position);
-        const { board, pendingTunnels } = game;
+    handleTankMove(game: GameState) {
+        super.handleTankMove(game);
+        const { board, tank } = game;
+        const tunnel = board[tank.y][tank.x];
+        let pendingTunnel = true;
+        each(board, (row, y) => {
+            each(row, (tile, x) => {
+                if (
+                    sameKindTunnel(tile, tunnel) && 
+                    !sameCoord(tank, {x, y, direction: CMD.UP}) &&
+                    !tile.object
+                ) {
+                    tank.x = x;
+                    tank.y = y;
+                    pendingTunnel = false;
+                    return pendingTunnel;
+                }
+            });
+            return pendingTunnel;
+        });
+        if (pendingTunnel) {
+            game.pendingTunnels.push({ ...tank });
+        }
+    }
+
+    handleLeaving(game: GameState, position: Position) { 
+        super.handleLeaving(game, position);
+        const { board, tank, pendingTunnels } = game;
         const index = findIndex(pendingTunnels, ({ x, y }) => {
             return sameKindTunnel(board[y][x], board[position.y][position.x]);
         });
         if (index > -1) {
             const pending = pendingTunnels.splice(index, 1)[0];
             if (!sameCoord(pending, position)) {
-                this.handleMove(game, pending);
+                const pedningTile = board[pending.y][pending.x];
+                if (pedningTile.object) {
+                    const targetTile = get(board, [position.y, position.x]);
+                    targetTile.object = pedningTile.object;
+                    delete pedningTile.object;
+                } else if (sameCoord(tank, pending)) {
+                    GameObject.moveTank(game, position);
+                }
             }
         }
     }
@@ -472,21 +569,19 @@ class Tunnel extends GameBackground {
 class Flag extends GameBackground {
     css = 'FLAG';
 
-    handleMove(game: GameState, position: Position) {
-        const { tank } = game;
-        if (tank.x === position.x && tank.y === position.y) {
-            game.status = "WIN";
-        }
-    };
+    handleTank(game: GameState, inSkipping: boolean) {
+        super.handleTank(game, inSkipping);
+        game.status = "WIN";
+    }
 }
 
 class Water extends GameBackground {
     css = 'WATER';
 
-    handleMove(game: GameState, position: Position) {
-        const { board, tank } = game;
-        const { x, y } = position;
-        const tile = board[y][x];
+    handleLanding(game: GameState, from: Position, to: Position) {
+        super.handleLanding(game, from, to);
+        const { board } = game;
+        const tile = board[to.y][to.x];
         if (tile.object === GameObstacles.MOVABLE_BLOCK) {
             tile.background = GameBackgrounds.MOVABLE_BLOCK_WATER;
         }
@@ -494,98 +589,95 @@ class Water extends GameBackground {
     };
 
     handleTank(game: GameState, inSkipping: boolean) {
-        if (inSkipping) {
-            game.status = 'FAIL';
-        } else {
-            game.next.push({
-                cmd: 'CHECK',
-                start: game.tank,
-            });
-        }
+        super.handleTank(game, inSkipping);
+        game.status = 'FAIL';
     }
 }
 
 class Ice extends GameBackground {
     css = 'ICE';
 
-    handleMove(game: GameState, position: Position) {
-        const { tank, board } = game;
-        const { x, y } = position;
-        const target = nextPosition(position);
-        // TODO: hack for skipping issue, should make this configurable
-        if (tank.x === x && tank.y === y && isAvailable(target, board) && this.shouldSkip(game)) {
-                game.prevTank = { ...tank };
-                tank.x = target.x;
-                tank.y = target.y;
-                GameObject.handleMove(game, game.prevTank, target);
-                GameObject.checkTank(game, false);
-        } else {
-            // TODO: need handle tank skipping. Does obstacle has skipping issue ?
-            game.next.push({
-                cmd: position.direction,
-                start: {...position},
-            });
+    handleLanding(game: GameState, from: Position, to: Position) {
+        super.handleLanding(game, from, to);
+        const direction = getDirection(from, to);
+        if (direction) {
+            const target = nextPosition({ ...to, direction, });
+            if (!sameCoord(game.tank, target)) {
+                this.handleMove(game, to, target);
+            }
         }
     }
 
-    shouldSkip(game: GameState) {
-        const { board, prevTank } = game;
-        const prevBackground = GameObject.getBackground(get(board, [prevTank.y, prevTank.x]));
-        return !(prevBackground instanceof Ice) && !(prevBackground instanceof TankMoverN);
+    handleTank(game: GameState, inSkipping: boolean) {
+        super.handleTank(game, inSkipping);
+        const { tank, prevTank } = game;
+        const direction = getDirection(prevTank, tank);
+        if (direction) {
+            const target = nextPosition({
+                ...tank,
+                direction,
+            });
+            GameObject.moveTank(game, target, this.shouldSkip(game, target));
+        }
+    }
+
+    shouldSkip(game: GameState, position: Position): boolean {
+        const tile = get(game.board, [position.y, position.x])
+        const background = GameObject.getBackground(tile);
+        return !Boolean(tile.object) && !(background instanceof Ice);
     }
 }
 
 class ThinIce extends Ice {
     css = 'THIN_ICE';
 
-    handleMove(game: GameState, position: Position) {
-        super.handleMove(game, position);
-        game.board[position.y][position.x].background = GameBackgrounds.WATER;
-    }
-}
-
-class TankMoverN extends GameObject {
-    css = 'TANK_MOVER_N';
-    direction: DIRECTION = 'N';
-
-    handleTank(game: GameState, inSkipping: boolean) {
-        const { tank } = game;
-        const { x, y } = tank;
-        const target = nextPosition({ x, y, direction: this.direction });
-        if (tank.x === x && tank.y === y && isAvailable(target, game.board)) {
-            if (!inSkipping && this.shouldSkip(game)) {
-                game.prevTank = { ...tank };
-                tank.x = target.x;
-                tank.y = target.y;
-                GameObject.handleMove(game, game.prevTank, target);
-                GameObject.checkTank(game, true);
-            } else {
-                game.next.push({
-                    cmd: this.direction,
-                    start: {...tank},
-                });
-            }
+    handleLanding(game: GameState, from: Position, to: Position) {
+        super.handleLanding(game, from, to);
+        const tile = game.board[to.y][to.x];
+        tile.background = GameBackgrounds.WATER;
+        if (tile.object) {
+            GameObject.getBackground(tile).handleLanding(game, to, to);
         }
     }
 
-    shouldSkip(game: GameState) {
-        const { board, prevTank, tank } = game;
-        const prevBackground = GameObject.getBackground(get(board, [prevTank.y, prevTank.x]));
-        return sameCoord(prevTank, tank) || !(prevBackground instanceof TankMoverN);
+    handleTank(game: GameState, inSkipping: boolean) {
+        const { tank, board } = game;
+        const position = { ...tank };
+        const tile = board[position.y][position.x];
+        super.handleTank(game, inSkipping);
+        tile.background = GameBackgrounds.WATER;
+        if (sameCoord(position, game.tank)) {
+            GameObject.getBackground(tile).handleTank(game, inSkipping);
+        }
     }
+}
+
+class TankMoverN extends GameBackground {
+    css = 'TANK_MOVER_N';
+    direction: DIRECTION = CMD.UP;
+
+    handleTank(game: GameState, inSkipping: boolean) {
+        super.handleTank(game, inSkipping);
+        GameObject.moveTank(game, nextPosition({ ...game.tank, direction: this.direction }));
+    }
+
+    // shouldSkip(game: GameState, position: Position): boolean {
+    //     const tile  = get(game.board, [position.y, position.x]);
+    //     return !(GameObject.getBackground(tile) instanceof TankMoverN) || Boolean(tile.object);
+    // }
 }
 
 class TankMoverS extends TankMoverN {
     css = 'TANK_MOVER_S';
-    direction: DIRECTION = 'S';
+    direction: DIRECTION = CMD.DOWN;
 }
 
 class TankMoverW extends TankMoverN {
     css = 'TANK_MOVER_W';
-    direction: DIRECTION = 'W';
+    direction: DIRECTION = CMD.LEFT;
 }
 
 class TankMoverE extends TankMoverN {
     css = 'TANK_MOVER_E';
-    direction: DIRECTION = 'E';
+    direction: DIRECTION = CMD.RIGHT;
 }
