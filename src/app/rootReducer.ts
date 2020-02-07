@@ -3,7 +3,7 @@ import { combineReducers } from '@reduxjs/toolkit'
 import gameSlice from '../features/game/game';
 
 const rootReducer = combineReducers({
-    game: gameSlice,
+    game: gameSlice.reducer,
 });
 
 

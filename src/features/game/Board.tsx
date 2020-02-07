@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
 import { RootState } from '../../app/rootReducer';
-import { BOARD_SIZE, CMD, exec, renderFrame, GameState, loadLevel } from './game';
+import { BOARD_SIZE, CMD, exec, renderFrame, GameState, loadLevel, DIRECTION } from './game';
 import { Tile, GameBackgrounds, GameObject } from './tiles';
 
 import './Board.css';
@@ -37,7 +37,17 @@ const BoardRow = React.memo(({ row, tileSize }: {row: Tile[], tileSize: number})
             return <BoardTile key={j} tile={tile} tileSize={tileSize}/>
         })}
     </div>
-})
+});
+
+const directionToStr = (direction: DIRECTION) => {
+    const directionMap: {[key in DIRECTION]: string} = {
+        [CMD.UP]: 'N',
+        [CMD.DOWN]: 'S',
+        [CMD.LEFT]: 'W',
+        [CMD.RIGHT]: 'E',
+    };
+    return directionMap[direction];
+}
 
 class Board extends React.Component<BoardProps, BoardState> {
     state = { limit: 0 };
@@ -84,8 +94,8 @@ class Board extends React.Component<BoardProps, BoardState> {
     }
 
     shouldComponentUpdate(nextProps: BoardProps, nextState: BoardState) {
-        return nextProps.game.timer !== this.props.game.timer ||
-            nextState.limit !== this.state.limit
+        return nextState.limit !== this.state.limit ||
+            nextProps.game.timer !== this.props.game.timer
         ;
     }
 
@@ -115,11 +125,11 @@ class Board extends React.Component<BoardProps, BoardState> {
                         left: -tileSize, top: i * tileSize
                     }}>{i + 1}</div>
                 })}
-                <div className={`tank TANK_${tank.direction}`} style={{ 
+                <div className={`tank TANK_${directionToStr(tank.direction)}`} style={{ 
                     left: tank.x * tileSize, top: tank.y * tileSize, ...tileStyle
                 }}/>
-                {laser && <div className={`laser ${laser.direction}`} 
-                    style={['N', 'S'].includes(laser.direction) ? { 
+                {laser && <div className={`laser ${directionToStr(laser.direction)}`} 
+                    style={[CMD.UP, CMD.DOWN].includes(laser.direction) ? { 
                         left: laser.x * tileSize + (tileSize / 2 - 2), 
                         top: laser.y * tileSize, 
                         ...tileStyle, width: 4,
@@ -130,6 +140,11 @@ class Board extends React.Component<BoardProps, BoardState> {
                     }}
                 />}
             </div>
+            <div>
+                {map(range(0, 16), (i) => {
+                    return <div key={i} style={{ width: tileSize, display: 'inline-block' }}>{i + 1}</div>
+                })}
+            </div>
         </div>
     }
 }
@@ -137,23 +152,23 @@ class Board extends React.Component<BoardProps, BoardState> {
 export default () => {
     const game = useSelector((state: RootState) => state.game)
     const dispatch = useDispatch();
-    const { next, status, levelIndex } = game;
+    const { status, levelIndex } = game;
     const debounceRenderFrame = debounce(() => {
-        return dispatch(renderFrame(null));
+        return dispatch(renderFrame());
     }, 10);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const cmdMap: {[key: string]: CMD} = {
-                ArrowUp: 'N',
-                ArrowDown: 'S',
-                ArrowLeft: 'W',
-                ArrowRight: 'E',
-                'u': 'UNDO',
-                'U': 'UNDO',
-                ' ': 'FIRE',
+                ARROWUP: CMD.UP,
+                ARROWDOWN: CMD.DOWN,
+                ARROWLEFT: CMD.LEFT,
+                ARROWRIGHT: CMD.RIGHT,
+                'U': CMD.UNDO,
+                ' ': CMD.FIRE,
+                'P': CMD.PAUSE,
             };
-            const cmd = cmdMap[e.key];
+            const cmd = cmdMap[e.key.toUpperCase()];
             if (cmd) {
                 dispatch(exec(cmd));
             }
@@ -163,10 +178,10 @@ export default () => {
     }, [dispatch]);
 
     useEffect(() => {
-        if (next.length > 0 && status !== 'FAIL') {
+        if (game.rendering && !game.pause) {
             debounceRenderFrame();
         }
-    }, [debounceRenderFrame, next, status]);
+    }, [debounceRenderFrame, game]);
 
     useEffect(() => {
         if (status === 'WIN') {
