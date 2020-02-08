@@ -1,4 +1,4 @@
-import { get, each, findIndex } from 'lodash';
+import { get, each, sortBy, findIndex } from 'lodash';
 import {  GameState, DIRECTION, BOARD_SIZE, CMD } from './game';
 
 export enum GameBackgrounds {
@@ -193,17 +193,23 @@ export class GameObject {
             return;
         }
         game.pending = [];
-        each(pending, ({ from, to }) => {
-            const toTile = get(board, [to.y, to.x]);
-            this.getBackground(toTile).handleLanding(game, from, to);
-            if (from) {
-                const fromTile = get(board, [from.y, from.x]);
-                if (!fromTile.object) {
-                    this.getBackground(fromTile).handleLeaving(game, from);
+        each(
+            sortBy(pending, [
+                ({ to }) => to.y, 
+                ({ to }) => to.x, 
+            ]), 
+            ({ from, to }) => {
+                const toTile = get(board, [to.y, to.x]);
+                this.getBackground(toTile).handleLanding(game, from, to);
+                if (from) {
+                    const fromTile = get(board, [from.y, from.x]);
+                    if (!fromTile.object) {
+                        this.getBackground(fromTile).handleLeaving(game, from);
+                    }
                 }
+                return game.status !== 'FAIL';
             }
-            return game.status !== 'FAIL';
-        });
+        );
     }
 
     static checkTank(game: GameState) {
@@ -232,8 +238,8 @@ export class GameObject {
         const { board, tank } = game;
         const tile = board[to.y][to.x];
         const background = GameObject.getBackground(tile);
+        game.prevTank = { ...tank };
         if (isAvailable(to, game.board)) {
-            game.prevTank = { ...tank };
             tank.x = to.x;
             tank.y = to.y;
             game.rendering = true;
@@ -246,21 +252,6 @@ export class GameObject {
             }
         }
     }
-    // static handleMove(game: GameState, position: Position){
-    //     const { board, pending } = game;
-    //     const target = nextPosition(position);
-    //     if (isAvailable(target, board)) {
-    //         const targetTile = get(board, [target.y, target.x]);
-    //         const fromTile = board[position.y][position.x];
-    //         targetTile.object = fromTile.object;
-    //         delete fromTile.object;
-
-    //         pending.push(target);
-    //         pending.push(position);
-    //         // this.getBackground(targetTile).handleMove(game, position, target);
-    //         // this.getBackground(fromTile).handleEmpty(game, position);
-    //     }
-    // }
 
     static getObstacleCss(tile: Tile) {
         return this.getObstacle(tile)?.css;
@@ -274,22 +265,8 @@ export class GameObject {
 
     handleLeaving(game: GameState, position: Position) {};
 
-    handleMove(game: GameState, from: Position, to: Position | null = null){
-        const { board, pending } = game;
-        const fromTile = board[from.y][from.x];
-        if (!to) {
-            to = nextPosition(from);
-        }
-        if (fromTile.object && isAvailable(to, board)) {
-            const targetTile = get(board, [to.y, to.x]);
-            targetTile.object = fromTile.object;
-            delete fromTile.object;
-
-            pending.push({
-                from,
-                to,
-            });
-        }
+    pending(game: GameState, from: Position, to: Position) {
+        game.pending.push({ from, to });
     }
 }
 
@@ -301,6 +278,27 @@ class GameObstacle extends GameObject {
     sawTank(game: GameState, position: Position): boolean {
         // false means current obstacle already blocked further obstacles seeing tank
         return false;
+    }
+
+    handleMove(game: GameState, from: Position, to: Position | null = null) {
+        const { board, pending } = game;
+        const fromTile = board[from.y][from.x];
+        if (!to) {
+            to = nextPosition(from);
+        }
+        const index = pending.findIndex((p) => {
+            return sameCoord(p.to, from);
+        });
+        if (index > -1) {
+            pending.splice(index, 1);
+        }
+        if (fromTile.object && isAvailable(to, board)) {
+            const targetTile = get(board, [to.y, to.x]);
+            targetTile.object = fromTile.object;
+            delete fromTile.object;
+
+            GameObject.getBackground(targetTile).pending(game, from, to);
+        }
     }
 }
 
@@ -599,12 +597,9 @@ class Ice extends GameBackground {
 
     handleLanding(game: GameState, from: Position, to: Position) {
         super.handleLanding(game, from, to);
-        const direction = getDirection(from, to);
-        if (direction) {
-            const target = nextPosition({ ...to, direction, });
-            if (!sameCoord(game.tank, target)) {
-                this.handleMove(game, to, target);
-            }
+        const target = this.getNextTarget(game, from, to);
+        if (target) {
+            GameObject.getObstacle(game.board[to.y][to.x])?.handleMove(game, to, target);
         }
     }
 
@@ -619,6 +614,27 @@ class Ice extends GameBackground {
             });
             GameObject.moveTank(game, target, this.shouldSkip(game, target));
         }
+    }
+
+    pending(game: GameState, from: Position, to: Position) {
+        if (this.shouldPending(game, from, to)) {
+            super.pending(game, from, to);
+        }
+    }
+
+    shouldPending(game: GameState, from: Position, to: Position): boolean {
+        return !!this.getNextTarget(game, from, to);
+    }
+
+    getNextTarget(game: GameState, from: Position, to: Position): Position | null {
+        const direction = getDirection(from, to);
+        if (direction) {
+            const target = nextPosition({ ...to, direction, });
+            if (!sameCoord(game.tank, target) && isAvailable(target, game.board)) {
+                return target;
+            }
+        }
+        return null;
     }
 
     shouldSkip(game: GameState, position: Position): boolean {
@@ -638,6 +654,10 @@ class ThinIce extends Ice {
         if (tile.object) {
             GameObject.getBackground(tile).handleLanding(game, to, to);
         }
+    }
+
+    shouldPending(game: GameState, from: Position, to: Position) {
+        return true;
     }
 
     handleTank(game: GameState, inSkipping: boolean) {

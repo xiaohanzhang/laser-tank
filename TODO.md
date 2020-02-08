@@ -5,8 +5,8 @@
     * upload level
 * replay
 * map editor
-* test tutor levels 29 
-* status = WIN should stop rendering
+* test tutor levels 40
+* prevent keyboard while rendering
 
 ## Basic Rules
 map has 3 layers

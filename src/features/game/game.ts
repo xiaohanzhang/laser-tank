@@ -217,7 +217,7 @@ const gameSlice = createSlice({
             // background handleTank
             GameObject.checkTank(state);
             state.timer += 1;
-            state.rendering = state.status !== 'FAIL' && (
+            state.rendering = state.status === 'PLAYING' && (
                 state.rendering || Boolean(state.laser) || state.pending.length > 0
             )
         },
