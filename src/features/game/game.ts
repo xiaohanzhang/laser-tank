@@ -1,4 +1,4 @@
-import { get, map, range, sum, chunk } from 'lodash';
+import { get, map, range, sum, trim, chunk } from 'lodash';
 import { createSlice, PayloadAction  } from '@reduxjs/toolkit';
 import { AppThunk } from '../../app/store';
 
@@ -58,13 +58,14 @@ export interface PlayField {
 }
 
 export interface GameState extends PlayField {
+    cleanUp: Position[],
     timer: number,
     rendering: boolean,
     pause: boolean,
     levels: TLEVEL[],
 };
 
-type Status = "WIN" | "FAIL" | "PLAYING"
+export type Status = "WIN" | "FAIL" | "PLAYING"
 
 class DB {
     record: RecordCMD[] = [];
@@ -107,6 +108,7 @@ export const initialState: GameState = {
     pending: [],
     pendingTunnels: [],
     status: "PLAYING",
+    cleanUp: [],
     levelIndex: 0,
     timer: 0,
     rendering: false,
@@ -216,6 +218,7 @@ const gameSlice = createSlice({
             // obstacle sawTank
             // background handleTank
             GameObject.checkTank(state);
+            GameObject.cleanUp(state);
             state.timer += 1;
             state.rendering = state.status === 'PLAYING' && (
                 state.rendering || Boolean(state.laser) || state.pending.length > 0
@@ -270,12 +273,13 @@ export const openDataFile = (buffer: ArrayBuffer): AppThunk => (dispatch) => {
         });
         return {
             board: chunk(Array.from(new Uint8Array(data.board)), 16),
-            levelName: String.fromCharCode.apply(null, Array.from(new Uint8Array(data.levelName))),
-            hint: String.fromCharCode.apply(null, Array.from(new Uint8Array(data.hint))),
-            author: String.fromCharCode.apply(null, Array.from(new Uint8Array(data.author))),
+            levelName: trim(String.fromCharCode.apply(null, Array.from(new Uint8Array(data.levelName))), '\u0000'),
+            hint: trim(String.fromCharCode.apply(null, Array.from(new Uint8Array(data.hint))), '\u0000'),
+            author: trim(String.fromCharCode.apply(null, Array.from(new Uint8Array(data.author))), '\u0000'),
             scoreDifficulty: new Uint16Array(data.scoreDifficulty)[0],
         }
     });
+    console.log(JSON.stringify(levels));
     dispatch(loadLevels({
         levels,
         levelIndex: 0, 

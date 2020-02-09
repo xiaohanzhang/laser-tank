@@ -185,9 +185,10 @@ export default () => {
 
     useEffect(() => {
         if (status === 'WIN') {
+            debounceRenderFrame.cancel();
             dispatch(loadLevel(levelIndex + 1));
         }
-    }, [dispatch, levelIndex, status])
+    }, [dispatch, levelIndex, status, debounceRenderFrame])
 
     return <Board game={game}/>
 }
