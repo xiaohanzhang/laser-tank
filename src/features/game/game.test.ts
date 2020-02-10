@@ -120,7 +120,7 @@ describe('tiles test', () => {
             'E3W2NNN',
             'E3W2NNWW',
             'S1SEENNWW',
-            'S1SEENNWW',
+            'S1SEESSWW', 
             'W2NE3333WWEEWW',
             'EENNEE',
             '0W2WEEW2WWWSS',
@@ -140,6 +140,43 @@ describe('tiles test', () => {
             'NW2SS',
             '0WW',
             'W2NNWWW2NNS1WW',
+            'W2NNNWWWEENNEES1SS',
+            'WWWNNNN', // multiple solutions
+            'NNNNWWWWS1W2W', // multiple solutions
+            'WWSSWWWWWWNNNNEEEEEESSS',
+            'EENNNEESS',
+            'EEESSEENN',
+            'SSWWNN',
+            'W22E3WWNN',
+            'EEN0WWSSNN',
+            'NWWS1EESSSW22NNEESSWW',
+            'E3ESS1N0N',
+            'E3EESS1E3N0EE',
+            'WWN0NEEE3EE',
+            'SSSSSSE3ES1WWSSSE33NNNNNEES111SSWWSSSE33SSSEEEEEENNW2SSEEENNW22WNNNNW2SSSSSWWWWWWWNNNNNNEES11SWWSSSE33SSSEEEEN0EEENNW2WSSWWWWNNNNNNNNNEEES1SW2NNWWWWSSSEEN00SSSSSSSEEEN0WWWNNE3NNNNNNNNEEES1SE3NNWWWWNNE33333333SSSSSSSSSSEEEEN0NEEEN00WWWWWNNNNNNNNEEES1NNE33333EEEESSSW2NNWWWWWWWSSSSSEEEEEN00WWWWWNNNNNNEEEE333EEE333EEEEE',
+            '',
+            'NS1SW2SSEESS',
+            'SSS',
+            '0WWWN00WWWNNNE33NNE3NNE333NNSSSSSSSEESSSSWW',
+            'S1W2SSS',
+            'EESSS', // multiple solutions
+            'SSEEEEEEEEENNNW222SSSWWWWWWWWWNNNN',
+            'EEENNW2WSSSW2222NNNNW2SSW2WWSSSN0WW', // multiple solutions
+            'SSWWWWWWWWWNNNNNNNEEE',
+            'NNNNNWWEEE', // multiple solutions
+            'EEEEEEEEENNNWWS11SSWWWWWSSWW',
+            'SSN0NNEESSSWWWNNWW',
+            'SSN0NNEENNNNNNNWWWSSSWW',
+            'SSN0NNEENNNNWWWWSSS',
+            'SSN0NNEENNNNWWWSSSWW',
+            '0E3EN0WWW22N00NNEE',
+            'SSWWWNNE3SSEEEN0000WWN0EENNNNN',
+            'NNNNWWWWSSSW2NNNEEEESSSSSWWEE',
+            'WWWWS111EEEESSWW',
+            'NNNNEEEEEEEEEEESSSSSWW2WW',
+            'NEEENNEEENNEEEEWWWWWWWWWWWW',
+            'WWS1WWNN',
+            'NNNNNNEE',
         ], (records, i) => {
             console.log(`${i + 1}: ${state.levels[i].levelName}`);
             if (records) {

@@ -1,4 +1,4 @@
-import { get, each, sortBy, findIndex } from 'lodash';
+import { get, each, reverse, findIndex } from 'lodash';
 import {  GameState, DIRECTION, BOARD_SIZE, CMD } from './game';
 
 export enum GameBackgrounds {
@@ -194,14 +194,12 @@ export class GameObject {
         }
         game.pending = [];
         each(
-            sortBy(pending, [
-                ({ to }) => to.y, 
-                ({ to }) => to.x, 
-            ]), 
+            reverse(pending), 
             ({ from, to }) => {
                 this.handlePending(game, from , to)
             }
         );
+        game.pending = reverse(game.pending);
     }
 
     static handlePending(game: GameState, from: Position, to: Position) {
@@ -215,12 +213,17 @@ export class GameObject {
         return game.status !== 'FAIL';
     }
 
-    static checkTank(game: GameState) {
+    static checkTank(game: GameState, prevBoard: Board) {
         const { board, tank } = game;
         const tile = board[tank.y][tank.x];
-        if (!tile.object && game.status !== 'FAIL') {
-            this.checkFire(game);
-            this.getBackground(board[tank.y][tank.x]).handleTank(game, false);
+        if (game.status !== 'FAIL') {
+            if (!tile.object) {
+                this.checkFire(game);
+            }
+            const background = this.getBackground(board[tank.y][tank.x]);
+            if (background.shouldCheckTank(game, prevBoard)) {
+                background.handleTank(game, false);
+            }
         }
     }
 
@@ -228,7 +231,7 @@ export class GameObject {
         const { board, tank } = game;
         const tile = board[tank.y][tank.x];
         if (!tile.object && game.status !== 'FAIL') {
-            each([CMD.RIGHT, CMD.DOWN, CMD.LEFT, CMD.UP], (direction: DIRECTION) => {
+            each([CMD.RIGHT, CMD.LEFT, CMD.DOWN, CMD.UP], (direction: DIRECTION) => {
                 forEachTile(board, { ...tank, direction }, (tile, current) => {
                     return this.getObstacle(tile)?.sawTank(game, current);
                 });
@@ -280,7 +283,7 @@ export class GameObject {
 
     handleLeaving(game: GameState, position: Position) {};
 
-    pending(game: GameState, from: Position, to: Position) {
+    pending(game: GameState, from: Position, to: Position, beforeCheckPending: boolean) {
         game.pending.push({ from, to });
     }
 }
@@ -295,7 +298,9 @@ class GameObstacle extends GameObject {
         return false;
     }
 
-    handleMove(game: GameState, from: Position, to: Position | null = null) {
+    skipLaser(game: GameState) {}
+
+    handleMove(game: GameState, from: Position, to: Position | null, beforeCheckPending: boolean) {
         const { board, pending } = game;
         const fromTile = board[from.y][from.x];
         if (!to) {
@@ -312,19 +317,14 @@ class GameObstacle extends GameObject {
             targetTile.object = fromTile.object;
             delete fromTile.object;
 
-            const direction = getDirection(from, to);
-            if (game.laser && sameCoord(from, game.laser) && game.laser.direction === direction) {
-                // TODO: tmp hack, should move this logic to mirror and anti-tank
-                game.laser = {
-                    ...to,
-                    direction: game.laser.direction
-                };
-            }
+            // if (game.laser && sameCoord(from, game.laser)) {
+            //     GameObject.getObstacle(targetTile)?.skipLaser(game);
+            // }
 
             if (targetTile.background === GameBackgrounds.TUNNEL) {
                 GameObject.handlePending(game, from, to);
             } else {
-                GameObject.getBackground(targetTile).pending(game, from, to);
+                GameObject.getBackground(targetTile).pending(game, from, to, beforeCheckPending);
             }
         }
     }
@@ -348,7 +348,7 @@ class MovableBlock extends GameObstacle {
 
     handleLaser(game: GameState, position: Position) {
         super.handleLaser(game, position);
-        this.handleMove(game, position);
+        this.handleMove(game, position, null, true);
     }
 }
 
@@ -362,7 +362,7 @@ class AntiTankN extends GameObstacle {
         if (position.direction === this.dead_direction) {
             game.board[position.y][position.x].object = this.dead;
         } else {
-            this.handleMove(game, position);
+            this.handleMove(game, position, null, true);
         }
     }
 
@@ -396,17 +396,22 @@ class AntiTankW extends AntiTankN {
 
 class AntiTankDeadN extends GameObstacle {
     css = 'ANTI_TANK_DEAD_N';
+
+    handleLaser(game: GameState, position: Position) {
+        super.handleLaser(game, position);
+        this.handleMove(game, position, position, true);
+    }
 }
 
-class AntiTankDeadS extends GameObstacle {
+class AntiTankDeadS extends AntiTankDeadN {
     css = 'ANTI_TANK_DEAD_S';
 }
 
-class AntiTankDeadW extends GameObstacle {
+class AntiTankDeadW extends AntiTankDeadN {
     css = 'ANTI_TANK_DEAD_W';
 }
 
-class AntiTankDeadE extends GameObstacle {
+class AntiTankDeadE extends AntiTankDeadN {
     css = 'ANTI_TANK_DEAD_E';
 }
 
@@ -431,17 +436,35 @@ class MirrorNW extends GameObstacle {
     }
 
     hitBack(game: GameState, position: Position) {
-        this.handleMove(game, position);
+        this.handleMove(game, position, null, true);
     }
 
     hitMirror(game: GameState, position: Position) {
+        const isMoving = game.pending.find(({ from, to }) => {
+            return sameCoord(to, position);
+        });
         const fire_directions = this.getFireDirections()
         const direction =  this.directions[1 - fire_directions.indexOf(position.direction)];
         fireLasert(game, {
             ...position,
             direction
         }, true);
+        if (isMoving && 
+            [GameBackgrounds.ICE, GameBackgrounds.THIN_ICE].includes(
+                game.board[position.y][position.x].background
+            )
+        ) {
+            GameObject.checkLaser(game);
+        }
     }
+
+    // skipLaser(game: GameState) {
+    //     // TODO: tmp hack, should move this logic to mirror and anti-tank
+    //     game.laser = {
+    //         ...to,
+    //         direction: game.laser.direction
+    //     };
+    // }
 }
 
 class MirrorNE extends MirrorNW {
@@ -501,6 +524,9 @@ class GameBackground extends GameObject {
     cleanUp(game: GameState, position: Position) {}
     shouldSkip(game: GameState, position: Position): boolean {
         return false;
+    }
+    shouldCheckTank(game: GameState, prevBoard: Board) {
+        return true;
     }
 }
 
@@ -578,23 +604,29 @@ class Tunnel extends GameBackground {
     handleLeaving(game: GameState, position: Position) { 
         super.handleLeaving(game, position);
         const { board, tank, pendingTunnels } = game;
-        const index = findIndex(pendingTunnels, ({ x, y }) => {
-            return sameKindTunnel(board[y][x], board[position.y][position.x]);
+        const obstacleIndex = findIndex(pendingTunnels, ({ x, y, direction }) => {
+            return sameKindTunnel(board[y][x], board[position.y][position.x]) && direction === CMD.UP;
         });
-        if (index > -1) {
-            const pending = pendingTunnels.splice(index, 1)[0];
+        const tankIndex = findIndex(pendingTunnels, ({ x, y, direction }) => {
+            return sameKindTunnel(board[y][x], board[position.y][position.x]) && direction === CMD.DOWN;
+        });
+        if (obstacleIndex > -1) {
+            const pending = pendingTunnels.splice(obstacleIndex, 1)[0];
             if (!sameCoord(pending, position)) {
                 const pedningTile = board[pending.y][pending.x];
-                if (pending.direction === CMD.UP && pedningTile.object) {
+                if (pedningTile.object) {
                     const targetTile = get(board, [position.y, position.x]);
                     targetTile.object = pedningTile.object;
                     delete pedningTile.object;
-                } else if (pending.direction === CMD.DOWN && sameCoord(tank, pending)) {
-                    if (isAvailable(position, game.board)) {
-                        tank.x = position.x;
-                        tank.y = position.y;
-                        game.rendering = true;
-                    }
+                }
+            }
+        } else if (tankIndex > -1) {
+            const pending = pendingTunnels.splice(tankIndex, 1)[0];
+            if (!sameCoord(pending, position) && sameCoord(tank, pending)) {
+                if (isAvailable(position, game.board)) {
+                    tank.x = position.x;
+                    tank.y = position.y;
+                    game.rendering = true;
                 }
             }
         }
@@ -606,6 +638,10 @@ class Flag extends GameBackground {
 
     handleTank(game: GameState, inSkipping: boolean) {
         super.handleTank(game, inSkipping);
+        game.status = "WIN";
+    }
+
+    skipTank(game: GameState) {
         game.status = "WIN";
     }
 }
@@ -628,8 +664,17 @@ class Water extends GameBackground {
         game.status = 'FAIL';
     }
 
-    pending(game: GameState, from: Position, to: Position) {
+    pending(game: GameState, from: Position, to: Position, beforeCheckPending: boolean) {
+        super.pending(game, from, to, beforeCheckPending);
         this.handleLanding(game, from, to);
+    }
+
+    skipTank(game: GameState) {
+        const { board, prevTank } = game;
+        const prevTile = board[prevTank.y][prevTank.x];
+        if (prevTile.background === GameBackgrounds.ICE) {
+            this.handleTank(game, true);
+        }
     }
 }
 
@@ -640,7 +685,7 @@ class Ice extends GameBackground {
         super.handleLanding(game, from, to);
         const target = this.getNextTarget(game, from, to, true);
         if (target) {
-            GameObject.getObstacle(game.board[to.y][to.x])?.handleMove(game, to, target);
+            GameObject.getObstacle(game.board[to.y][to.x])?.handleMove(game, to, target, false);
         }
     }
 
@@ -656,9 +701,9 @@ class Ice extends GameBackground {
         }
     }
 
-    pending(game: GameState, from: Position, to: Position) {
-        if (this.shouldPending(game, from, to)) {
-            super.pending(game, from, to);
+    pending(game: GameState, from: Position, to: Position, beforeCheckPending: boolean) {
+        if (!beforeCheckPending || this.shouldPending(game, from, to)) {
+            super.pending(game, from, to, beforeCheckPending);
         }
     }
 
@@ -682,6 +727,11 @@ class Ice extends GameBackground {
         const background = GameObject.getBackground(tile);
         return !Boolean(tile.object) && !(background instanceof Ice);
     }
+
+    shouldCheckTank(game: GameState, prevBoard: Board) {
+        const { tank } = game;
+        return !prevBoard[tank.y][tank.x].object;
+    }
 }
 
 class ThinIce extends Ice {
@@ -689,15 +739,16 @@ class ThinIce extends Ice {
 
     handleLanding(game: GameState, from: Position, to: Position) {
         super.handleLanding(game, from, to);
+        const tile = game.board[to.y][to.x];
+        if (tile.object) {
+            // TODO: this doesn't make much sense, should handle this in cleanUp. this is for tutor.lvl 68
+            new Water().handleLanding(game, to, to);
+        }
         game.cleanUp.push(to);
     }
 
     cleanUp(game: GameState, position: Position) {
-        const tile = game.board[position.y][position.x];
         game.board[position.y][position.x].background = GameBackgrounds.WATER
-        if (tile.object) {
-            GameObject.getBackground(tile).handleLanding(game, position, position);
-        }
     }
 
     shouldPending(game: GameState, from: Position, to: Position) {
@@ -733,6 +784,11 @@ class TankMoverN extends GameBackground {
         const tile = get(game.board, [position.y, position.x]);
         const background = GameObject.getBackground(tile);
         return !Boolean(tile.object) && !(background instanceof TankMoverN);
+    }
+
+    shouldCheckTank(game: GameState, prevBoard: Board) {
+        const { board, tank } = game;
+        return !board[tank.y][tank.x].object;
     }
 }
 

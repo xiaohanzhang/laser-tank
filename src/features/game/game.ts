@@ -130,6 +130,7 @@ const gameSlice = createSlice({
             const { board, tank, levels } = state;
             const levelIndex = action.payload;
             const level = get(levels, [levelIndex]);
+            console.log(db.record.join(''));
             if (!level) {
                 return;
             }
@@ -173,7 +174,6 @@ const gameSlice = createSlice({
             state.rendering = false;
             state.pause = false;
             state.status = 'PLAYING';
-            console.log(db.record.join(''));
             db.record = [];
         },
         undo(state) {
@@ -206,6 +206,12 @@ const gameSlice = createSlice({
             gameSlice.caseReducers.renderFrame(state);
         },
         renderFrame(state) {
+            const { board } = state;
+            const prevBoard: Board = map(board, (row) => {
+                return map(row, (tile) => {
+                    return {...tile};
+                });
+            });
             state.rendering = false;
             // move laser
             // check fail 
@@ -217,7 +223,7 @@ const gameSlice = createSlice({
             GameObject.checkPending(state);
             // obstacle sawTank
             // background handleTank
-            GameObject.checkTank(state);
+            GameObject.checkTank(state, prevBoard);
             GameObject.cleanUp(state);
             state.timer += 1;
             state.rendering = state.status === 'PLAYING' && (

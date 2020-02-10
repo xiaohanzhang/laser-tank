@@ -5,8 +5,13 @@
     * upload level
 * replay
 * map editor
-* test tutor levels 40
 * prevent keyboard while rendering
+* go to clicked position
+* mobile control panel up/down/left/right
+* undo breaks records
+* popup after finish last level
+* load level popup
+* info panel size
 
 ## Basic Rules
 map has 3 layers
@@ -34,6 +39,8 @@ Tunnel jump order N to S, W to E
 ## Legacy tricks
 first step on mover and ice doesn't count moving time
 move tank | move laser | move other object | checking whether certain conditions have been met 
+tankMover and ice handle shouldCheckTank differently
+tank sinks in different speed: ice->thin == tm->thin == tm->water slower than ice->water
 
 ## refactoring
 styles: classnames
