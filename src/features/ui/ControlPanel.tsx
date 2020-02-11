@@ -1,9 +1,11 @@
-import { get, map, max, filter } from 'lodash';
+import { get, map, max } from 'lodash';
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { RootState } from '../../app/rootReducer';
 import { exec, db, CMD, isDirection } from '../game/game';
+
+import './ControlPanel.css';
 
 export default () => {
     const dispatch = useDispatch();
@@ -11,31 +13,52 @@ export default () => {
     const { levelIndex, levels } = game;
     const { record } = db;
     const level = get(levels, [levelIndex]);
-    const numShoot = filter(record, (cmd) => !isDirection(cmd)).length;
-    const numMove = record.length - numShoot;
+    let lastCmd = CMD.UP;
+    let numShoot = 0;
+    let numMove = 0;
+    map(record, (cmd) => {
+        if (!isDirection(cmd)) {
+            numShoot += 1;
+        } else if (cmd === lastCmd) {
+            numMove += 1;
+        } else {
+            lastCmd = cmd;
+        }
+    });
 
     return <div className="control-panel">
         <div className="info" style={{ position: 'relative' }}>
             {level && <>
                 <div style={{ 
-                    position: 'absolute', top: '16%', left: '24%', height: '8%', width: '52%',
+                    position: 'absolute', 
+                    // top: '16%', left: '24%', height: '8%', width: '52%',
+                    top: 39, left: 43, height: 20, width: 93,
                     textAlign: 'center', color: '#0df90a',
                 }}>{levelIndex + 1}</div>
                 <div style={{ 
-                    position: 'absolute', top: '39%', left: '5%', height: '8%', width: '90%',
-                    textAlign: 'center', color: '#0df90a', fontSize: `${max([0.25 * 0.90 / level.levelName.length, 1.7])}vw`
+                    position: 'absolute', 
+                    // top: '39%', left: '5%', height: '8%', width: '90%',
+                    top: 95, left: 9, height: 20, width: 160,
+                    textAlign: 'center', color: '#0df90a', 
+                    fontSize: level.levelName.length > 20 ? 11 : 14
                 }}>{level.levelName}</div>
                 <div style={{ 
-                    position: 'absolute', top: '59%', left: '5%', height: '8%', width: '90%',
+                    position: 'absolute', 
+                    // top: '59%', left: '5%', height: '8%', width: '90%',
+                    top: 144, left: 9, height: 20, width: 160,
                     textAlign: 'center', color: '#0df90a',
                 }}>{level.author}</div>
                 {/* <div>{level.scoreDifficulty}</div> */}
                 <div style={{ 
-                    position: 'absolute', top: '82%', left: '11%', height: '8%', width: '32%',
+                    position: 'absolute',
+                    // top: '82%', left: '11%', height: '8%', width: '32%',
+                    top: 200, left: 20, height: 20, width: 57,
                     textAlign: 'center', color: '#0df90a',
                 }}>{numMove}</div>
                 <div style={{ 
-                    position: 'absolute', top: '82%', left: '58%', height: '8%', width: '32%',
+                    position: 'absolute', 
+                    // top: '82%', left: '58%', height: '8%', width: '32%',
+                    top: 200, left: 103, height: 20, width: 57,
                     textAlign: 'center', color: '#0df90a',
                 }}>{numShoot}</div>
 

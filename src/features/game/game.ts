@@ -177,6 +177,7 @@ const gameSlice = createSlice({
             db.record = [];
         },
         undo(state) {
+            db.record.pop();
             return {
                 ...state,
                 ...(db.history.pop()),

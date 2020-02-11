@@ -8,7 +8,6 @@
 * prevent keyboard while rendering
 * go to clicked position
 * mobile control panel up/down/left/right
-* undo breaks records
 * popup after finish last level
 * load level popup
 * info panel size
