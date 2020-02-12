@@ -95,7 +95,7 @@ class Board extends React.Component<BoardProps, BoardState> {
 
     shouldComponentUpdate(nextProps: BoardProps, nextState: BoardState) {
         return nextState.limit !== this.state.limit ||
-            nextProps.game.timer !== this.props.game.timer
+            nextProps.game.timer !== this.props.game.timer 
         ;
     }
 
@@ -151,11 +151,12 @@ class Board extends React.Component<BoardProps, BoardState> {
 
 export default () => {
     const game = useSelector((state: RootState) => state.game)
+    const ui = useSelector((state: RootState) => state.ui)
     const dispatch = useDispatch();
     const { status, levelIndex } = game;
     const debounceRenderFrame = debounce(() => {
         return dispatch(renderFrame());
-    }, 10);
+    }, ui.renderInterval);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {

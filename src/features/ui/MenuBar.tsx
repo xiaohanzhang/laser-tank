@@ -2,7 +2,8 @@ import { map } from 'lodash';
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 
-import { openDataFile } from '../../features/game/game';
+import { loadLevels } from '../../features/game/game';
+import { openDataFile } from '../../features/game/files';
 
 import './MenuBar.css';
 
@@ -14,7 +15,10 @@ export default () => {
         const reader = new FileReader();
         reader.onload = (e) => {
             if (e.target?.result) {
-                dispatch(openDataFile(e.target?.result as ArrayBuffer));
+                dispatch(loadLevels({
+                    levels: openDataFile(e.target?.result as ArrayBuffer),
+                    levelIndex: 0
+                }));
             }
         };
         reader.readAsArrayBuffer(file);
