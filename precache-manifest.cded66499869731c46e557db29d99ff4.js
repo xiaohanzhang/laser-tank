@@ -1,6 +1,6 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "881bdec5fa052af75655afd5405aa7dd",
+    "revision": "cd074c99319e83ef076f4a188bc20faf",
     "url": "/laser-tank/index.html"
   },
   {
