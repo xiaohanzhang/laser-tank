@@ -1,4 +1,4 @@
-import { get, each, reverse, findIndex } from 'lodash';
+import { get, each, range, reverse, findIndex } from 'lodash';
 import {  GameState, DIRECTION, BOARD_SIZE, CMD } from './game';
 
 export enum GameBackgrounds {
@@ -117,6 +117,16 @@ export interface Position {
 }
 
 export class GameObject {
+    static createEmptyBoard() {
+        return range(0, BOARD_SIZE).map(() => {
+            return range(0, BOARD_SIZE).map(() => {
+                return {
+                    background: GameBackgrounds.DIRT,
+                };
+            });
+        })
+    }
+
     static getBackgroundClass(background: GameBackgrounds) {
         return {
             [GameBackgrounds.FLAG]: Flag,

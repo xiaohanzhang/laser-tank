@@ -1,16 +1,42 @@
-import { get, map, max } from 'lodash';
-import React from 'react';
+import { get, map, debounce, toNumber } from 'lodash';
+import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { RootState } from '../../app/rootReducer';
-import { exec, db, CMD, isDirection } from '../game/game';
+import { exec, db, CMD, isDirection, TLEVEL, loadLevel } from '../game/game';
+import uiSlice from '../ui/ui';
 
 import './ControlPanel.css';
+
+const { setRenderInterval } = uiSlice.actions;
+
+const LevelsPopup = ({ levels, onClick }: { levels: TLEVEL[], onClick: (i: number) => void }) => {
+    return <div className="LevelsPopup">
+        <table>
+            <tr>
+                <th>Lev #</th>
+                <th>Name</th>
+                <th>Author</th>
+            </tr>
+            {map(levels, (level, i) => {
+                return <tr className={i % 2 === 0 ? 'odd' : 'even'} onClick={() => {
+                    onClick(i);
+                }}>
+                    <td>{i + 1}</td>
+                    <td>{level.levelName}</td>
+                    <td>{level.author}</td>
+                </tr>
+            })}
+        </table>
+    </div>
+}
 
 export default () => {
     const dispatch = useDispatch();
     const game = useSelector((state: RootState) => state.game);
-    const { levelIndex, levels } = game;
+    const ui = useSelector((state: RootState) => state.ui);
+    const [showPopup, setShowPopup] = useState(false);
+    const { levelIndex, levels, positionSaved, frameIndex } = game;
     const { record } = db;
     const level = get(levels, [levelIndex]);
     let lastCmd = CMD.UP;
@@ -25,6 +51,10 @@ export default () => {
             lastCmd = cmd;
         }
     });
+
+    const debouncedSetRenderInterval = debounce((renderInterval) => {
+        dispatch(setRenderInterval(renderInterval));
+    }, 500);
 
     return <div className="control-panel">
         <div className="info" style={{ position: 'relative' }}>
@@ -68,33 +98,62 @@ export default () => {
         <div className="control">
             {map([
                 [
-                    { name: 'Undo', cmd: CMD.UNDO },
-                    {
-                        name: 'Hint', onClick: () => {
-                            if (level?.hint) {
-                                alert(level?.hint);
-                            }
+                    { name: 'Undo', cmd: CMD.UNDO, disabled: frameIndex > 0 }, 
+                    { name: 'Hint', onClick: () => {
+                        if (level?.hint) {
+                            alert(level?.hint);
                         }
+                    }},
+                ],
+                [
+                    { name: 'Save', disabled: frameIndex > 0, cmd: CMD.SAVE_POSITION }, 
+                    { 
+                        name: 'Restore', cmd: CMD.RESTORE_POSITION, 
+                        disabled: frameIndex > 0 && !positionSaved 
                     },
                 ],
-                [{ name: 'Save Position' }],
-                [{ name: 'Restore Position' }],
-                [{ name: 'New' }, { name: 'Restart' }],
-                [{ name: 'Load Level' }],
+                [{ name: 'Restart', cmd: CMD.RESTART }, { name: 'Load Level', onClick: () => {
+                    setShowPopup(true);
+                }}],
                 [{ name: '<< Level', cmd: CMD.PREV_LEVEL }, { name: 'Level >>', cmd: CMD.NEXT_LEVEL }],
+                [
+                    { name: '<< Frame', cmd: CMD.PREV_FRAME }, 
+                    { name: 'Frame >>', cmd: CMD.NEXT_FRAME, disabled: frameIndex === 0 }
+                ],
             ], (row, i) => {
                 return <div key={i}>
-                    {map(row, ({ name, cmd, onClick }: { name: string, cmd?: CMD, onClick?: any }, j) => {
-                        return <div key={j} onClick={(e) => {
+                    {map(row, (
+                        { name, cmd, onClick, disabled }: 
+                        { name: string, cmd?: CMD, onClick?: any, disabled?: boolean }, 
+                        j
+                    ) => {
+                        return <button key={j} disabled={disabled} onClick={(e) => {
                             if (onClick) {
                                 onClick(e);
                             } else if (cmd) {
                                 dispatch(exec(cmd))
                             }
-                        }}>{name}</div>
+                        }}>{name}</button>
                     })}
                 </div>
             })}
+            <div style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div>
+                    <label style={{ flex: 1 }}>speed(0 - 10000): </label>
+                </div>
+                <div>
+                    <input style={{ flex: 3 }} value={ui.renderInterval} 
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            debouncedSetRenderInterval(toNumber(e.target.value));
+                        }}
+                    />
+                    <span>ms</span>
+                </div>
+            </div>
         </div>
+        {showPopup && <LevelsPopup levels={levels} onClick={(i) => {
+            dispatch(loadLevel(i));
+            setShowPopup(false);
+        }}/>}
     </div>
 }
