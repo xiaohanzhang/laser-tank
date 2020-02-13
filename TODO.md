@@ -1,15 +1,11 @@
 ## TODO
 * menu
-    * save level
-    * save replay
-    * upload level
-* replay
+    * export/upload level
+    * import/export replay
 * map editor
-* prevent keyboard while rendering
 * go to clicked position
 * mobile control panel up/down/left/right
 * popup after finish last level
-* load level popup
 * info panel size
 
 ## Basic Rules

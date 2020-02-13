@@ -193,6 +193,7 @@ const gameSlice = createSlice({
         },
         restorePosition(state) {
             db.record = [...db.snapshoot?.record || []];
+            db.frames = [];
             return {
                 ...state,
                 ...(db.snapshoot?.state || {}),
@@ -200,17 +201,8 @@ const gameSlice = createSlice({
                 frameIndex: 0,
             };
         },
-        prevFrame(state) {
-            const frameIndex = min([state.frameIndex + 1, db.frames.length - 1]) || (db.frames.length - 1);
-            return {
-                ...state,
-                ...(db.frames[db.frames.length - 1 - frameIndex]),
-                frameIndex,
-                timer: state.timer + 1,
-            }
-        },
-        nextFrame(state) {
-            const frameIndex = max([state.frameIndex - 1, 0]) || 0;
+        setFrame(state, action: PayloadAction<number>) {
+            const frameIndex = action.payload;
             return {
                 ...state,
                 ...(db.frames[db.frames.length - 1 - frameIndex]),
@@ -283,9 +275,12 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
     const { game } = getState();
     const { tank, board, status, pending, laser, levelIndex, frameIndex } = game;
     if (cmd === CMD.PREV_FRAME) {
-        dispatch(actions.prevFrame());
+        dispatch(actions.setFrame(
+            min([frameIndex + 1, db.frames.length - 1]) || 
+            (db.frames.length - 1)
+        ));
     } else if (cmd === CMD.NEXT_FRAME) {
-        dispatch(actions.nextFrame());
+        dispatch(actions.setFrame(max([frameIndex - 1, 0]) || 0));
     } else if (cmd === CMD.UNDO) {
         dispatch(actions.undo());
     } else if (cmd === CMD.RESTART) {
@@ -299,19 +294,23 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
         dispatch(loadLevel(levelIndex + 1));
     } else if (cmd === CMD.PREV_LEVEL) {
         dispatch(loadLevel(levelIndex - 1));
-    } else if (
-        isBoardCMD(cmd) && pending.length === 0 && !laser && 
-        status === 'PLAYING' && frameIndex === 0
-    ) {
-        const target = nextPosition(tank);
-        if (cmd === CMD.FIRE) {
-            db.save(game, cmd);
-            dispatch(fireTank());
-            db.saveFrame(game);
-        } else if (isDirection(cmd) && (tank.direction !== cmd || isAvailable(target, board))) {
-            db.save(game, cmd);
-            dispatch(moveTank(cmd));
-            db.saveFrame(game);
+    } else if (isBoardCMD(cmd)) {
+        if (frameIndex > 0) {
+            dispatch(actions.setFrame(0));
+        } else if (pending.length === 0 && !laser && status === 'PLAYING') {
+            const target = nextPosition(tank);
+            if (cmd === CMD.FIRE) {
+                db.save(game, cmd);
+                dispatch(fireTank());
+                db.saveFrame(game);
+            } else if (
+                isDirection(cmd) && 
+                (tank.direction !== cmd || isAvailable(target, board))
+            ) {
+                db.save(game, cmd);
+                dispatch(moveTank(cmd));
+                db.saveFrame(game);
+            }
         }
     }
 };
