@@ -3,9 +3,8 @@ import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
 import { RootState } from '../../app/rootReducer';
-import { BOARD_SIZE, CMD, exec, renderFrame, GameState, loadLevel, DIRECTION } from './game';
+import gameSlice, { goto, exec, renderFrame, BOARD_SIZE, CMD, GameState, DIRECTION } from './game';
 import { Tile, GameBackgrounds, GameObject } from './tiles';
-
 import './Board.css';
 
 interface BoardProps {
@@ -16,11 +15,20 @@ interface BoardState {
     limit: number,
 }
 
-const BoardTile = React.memo(({ tile, tileSize }: { tile: Tile, tileSize: number }) => {
-    return <div style={{ width: tileSize, height: tileSize }} className={[
-        'board-object',
-        GameObject.getBackgroundCss(tile),
-    ].filter(Boolean).join(' ')}>
+const BoardTile = React.memo((
+    { x, y, tile, tileSize }: { x: number, y: number, tile: Tile, tileSize: number }
+) => {
+    const dispatch = useDispatch();
+    return <div 
+        style={{ width: tileSize, height: tileSize }} 
+        className={[
+            'board-object',
+            GameObject.getBackgroundCss(tile),
+        ].filter(Boolean).join(' ')}
+        onClick={() => {
+            dispatch(goto(x, y));
+        }}
+    >
         {tile.background === GameBackgrounds.TUNNEL && <div style={{ 
             background: 'transparent',
             borderRadius: '50%',
@@ -31,10 +39,12 @@ const BoardTile = React.memo(({ tile, tileSize }: { tile: Tile, tileSize: number
     </div>
 });
 
-const BoardRow = React.memo(({ row, tileSize }: {row: Tile[], tileSize: number}) => {
+const BoardRow = React.memo((
+    { row, rowIndex, tileSize }: {row: Tile[], rowIndex: number, tileSize: number}
+) => {
     return <div className="row">
         {map(row, (tile, j) => {
-            return <BoardTile key={j} tile={tile} tileSize={tileSize}/>
+            return <BoardTile key={j} tile={tile} tileSize={tileSize} x={j} y={rowIndex}/>
         })}
     </div>
 });
@@ -117,7 +127,7 @@ class Board extends React.Component<BoardProps, BoardState> {
                 width: tileSize * BOARD_SIZE, height: tileSize * BOARD_SIZE, margin: '0 auto'
             }}>
                 {map(board, (row, i) => {
-                    return <BoardRow key={i} row={row} tileSize={tileSize}/>
+                    return <BoardRow key={i} rowIndex={i} row={row} tileSize={tileSize}/>
                 })}
                 {map(range(BOARD_SIZE), (i) => {
                     return <div key={i} style={{
@@ -187,7 +197,7 @@ export default () => {
     useEffect(() => {
         if (status === 'WIN') {
             debounceRenderFrame.cancel();
-            dispatch(loadLevel(levelIndex + 1));
+            dispatch(gameSlice.actions.loadLevel(levelIndex + 1));
         }
     }, [dispatch, levelIndex, status, debounceRenderFrame])
 

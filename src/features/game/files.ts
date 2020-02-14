@@ -48,6 +48,12 @@ export const parseBoard = (tLevel: TLEVEL): { board: Board, tank: Position } => 
     return { board, tank };
 }
 
+const toString = (buffer: ArrayBuffer) => {
+    return String.fromCharCode.apply(
+        null, Array.from(new Uint8Array(buffer)).filter(Boolean)
+    );
+}
+
 export const openDataFile = (buffer: ArrayBuffer): TLEVEL[] => {
     const tLevel = {
         board: 16 * 16,
@@ -65,11 +71,12 @@ export const openDataFile = (buffer: ArrayBuffer): TLEVEL[] => {
             data[key] = buffer.slice(cursor, cursor + size);
             cursor += size;
         });
+
         return {
             board: chunk(Array.from(new Uint8Array(data.board)), 16),
-            levelName: trim(String.fromCharCode.apply(null, Array.from(new Uint8Array(data.levelName))), '\u0000'),
-            hint: trim(String.fromCharCode.apply(null, Array.from(new Uint8Array(data.hint))), '\u0000'),
-            author: trim(String.fromCharCode.apply(null, Array.from(new Uint8Array(data.author))), '\u0000'),
+            levelName: toString(data.levelName),
+            hint: toString(data.hint),
+            author: toString(data.author),
             scoreDifficulty: new Uint16Array(data.scoreDifficulty)[0],
         }
     });

@@ -1,9 +1,11 @@
-import { get, map, max, min } from 'lodash';
+import { each, toInteger, get, map, max, min } from 'lodash';
 import { createSlice, PayloadAction  } from '@reduxjs/toolkit';
 import { AppThunk } from '../../app/store';
 
-import { nextPosition, isAvailable, Board, Position, GameObject, } from './tiles';
+import { nextPosition, isAvailable, Board, Coordinate, Position, GameObject, getDirection, GameBackgrounds, } from './tiles';
 import { parseBoard } from './files';
+import { aStar } from '../../utils/algorithm';
+import { sleep } from '../../utils/async';
 
 export const BOARD_SIZE = 16;
 
@@ -67,7 +69,8 @@ export interface GameState extends PlayField {
     pause: boolean,
     positionSaved: boolean,
     frameIndex: number,
-    levels: TLEVEL[],
+    pendingMoves: BoardCMD[],
+    level: TLEVEL | null,
 };
 
 export type Status = "WIN" | "FAIL" | "PLAYING"
@@ -76,6 +79,7 @@ class DB {
     record: RecordCMD[] = [];
     history: PlayField[] = [];
     frames: PlayField[] = [];
+    levels: TLEVEL[] = [];
     snapshoot: { state: PlayField, record: RecordCMD[] } | null = null;
 
     save(state: GameState, cmd: BoardCMD) {
@@ -134,8 +138,9 @@ export const initialState: GameState = {
     rendering: false,
     pause: false,
     positionSaved: false,
+    pendingMoves: [],
     frameIndex: 0,
-    levels: [],
+    level: null,
 };
 
 const gameSlice = createSlice({
@@ -144,18 +149,18 @@ const gameSlice = createSlice({
     reducers: {
         loadLevels(state, action: PayloadAction<{ levels: TLEVEL[], levelIndex: number }>) {
             const { levels, levelIndex } = action.payload;
-            state.levels = levels;
+            db.levels = levels;
             localStorage.setItem('levels', JSON.stringify(levels));
-            gameSlice.caseReducers.loadLevel(state, loadLevel(levelIndex));
+            gameSlice.caseReducers.loadLevel(state, gameSlice.actions.loadLevel(levelIndex));
         },
         loadLevel(state, action: PayloadAction<number>) {
-            const { levels } = state;
             const levelIndex = action.payload;
-            const level = get(levels, [levelIndex]);
-            console.log(`${levelIndex}: ${db.record.join('')}`);
+            const level = get(db.levels, [levelIndex]);
+            // console.log(`${levelIndex}: ${db.record.join('')}`);
             if (!level) {
                 return;
             }
+            state.level = level;
             localStorage.setItem('levelIndex', JSON.stringify(levelIndex));
             const { board, tank } = parseBoard(level);
             state.board = board;
@@ -210,6 +215,9 @@ const gameSlice = createSlice({
                 timer: state.timer + 1,
             }
         },
+        pendingMoves(state, action: PayloadAction<BoardCMD[]>) {
+            state.pendingMoves = action.payload;
+        },
         moveTank(state, action: PayloadAction<DIRECTION>) {
             const { tank } = state;
             const cmd = action.payload;
@@ -261,13 +269,64 @@ const gameSlice = createSlice({
     },
 });
 
-export const {
-    loadLevel, loadLevels, savePosition, restorePosition, moveTank, fireTank,
-} = gameSlice.actions;
-
 export const renderFrame = (): AppThunk => (dispatch, getState) => {
     dispatch(gameSlice.actions.renderFrame());
     db.saveFrame(getState().game);
+}
+
+export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => {
+    const actions = gameSlice.actions;
+    const { game } = getState();
+    const { tank, board } = game;
+    const toId = ({x, y}: Coordinate) => {
+        return (y * BOARD_SIZE + x).toString();
+    };
+    const toCoord = (id: string) => {
+        const value = toInteger(id);
+        const x = value % BOARD_SIZE;
+        const y = Math.floor(value/BOARD_SIZE);
+        return {x, y};
+    }
+    const hScore = (from: Coordinate, to: Coordinate): number => {
+        return Math.abs(from.x - to.x) + Math.abs(from.y - to.y);
+    }
+    const path = aStar(toId(tank), toId({x, y}), hScore(tank, {x, y}), (current, callback) => {
+        const {x, y} = toCoord(current);
+        each([{x, y: y - 1}, {x: x + 1, y}, {x, y: y + 1}, {x: x - 1, y}], (neighbor) => {
+            const tile = get(board, [neighbor.y, neighbor.x]);
+            if (
+                tile && !tile.object && [
+                    GameBackgrounds.DIRT, GameBackgrounds.FLAG, GameBackgrounds.MOVABLE_BLOCK_WATER,
+                ].includes(tile.background)
+            ) {
+                callback(toId(neighbor), 1, hScore(neighbor, tank));
+            }
+        });
+    });
+
+    const move = async () => {
+        const { game, ui } = getState();
+        const { tank, rendering } = game;
+        if (path && path.length > 0) {
+            const start = Date.now();
+            if (!rendering) {
+                const target = toCoord(path[0]);
+                const direction = getDirection(tank, target);
+                if (direction) {
+                    if (direction === tank.direction) {
+                        path.shift();
+                    }
+                    dispatch(actions.moveTank(direction));
+                } else {
+                    path.shift();
+                }
+            }
+            
+            await sleep(max([ui.renderInterval - (Date.now() - start), 0]) || 0);
+            move();
+        }
+    }
+    move();
 }
 
 export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
@@ -284,16 +343,16 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
     } else if (cmd === CMD.UNDO) {
         dispatch(actions.undo());
     } else if (cmd === CMD.RESTART) {
-        dispatch(loadLevel(levelIndex));
+        dispatch(actions.loadLevel(levelIndex));
     } else if (cmd === CMD.SAVE_POSITION && frameIndex === 0) {
         db.savePosition(game);
-        dispatch(savePosition());
+        dispatch(actions.savePosition());
     } else if (cmd === CMD.RESTORE_POSITION) {
-        dispatch(restorePosition());
+        dispatch(actions.restorePosition());
     } else if (cmd === CMD.NEXT_LEVEL) {
-        dispatch(loadLevel(levelIndex + 1));
+        dispatch(actions.loadLevel(levelIndex + 1));
     } else if (cmd === CMD.PREV_LEVEL) {
-        dispatch(loadLevel(levelIndex - 1));
+        dispatch(actions.loadLevel(levelIndex - 1));
     } else if (isBoardCMD(cmd)) {
         if (frameIndex > 0) {
             dispatch(actions.setFrame(0));
@@ -301,14 +360,14 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
             const target = nextPosition(tank);
             if (cmd === CMD.FIRE) {
                 db.save(game, cmd);
-                dispatch(fireTank());
+                dispatch(actions.fireTank());
                 db.saveFrame(game);
             } else if (
                 isDirection(cmd) && 
                 (tank.direction !== cmd || isAvailable(target, board))
             ) {
                 db.save(game, cmd);
-                dispatch(moveTank(cmd));
+                dispatch(actions.moveTank(cmd));
                 db.saveFrame(game);
             }
         }

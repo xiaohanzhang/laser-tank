@@ -3,6 +3,7 @@ html, body, #root {
   padding: 0;
   height: 100%;
   width: 100%;
+  overflow: hidden;
 }
 
 .App {
@@ -15,6 +16,7 @@ html, body, #root {
   text-align: center;
   height: 100%;
   width: 100%;
+  overflow: hidden;
 }
 
 .App * {
