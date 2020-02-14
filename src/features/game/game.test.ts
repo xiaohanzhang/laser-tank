@@ -1,7 +1,7 @@
 import { map } from 'lodash';
 import gameSlice, { 
     CMD, FIRE_DIRECTION, RecordCMD, initialState, isDirection, DIRECTION, 
-    GameState, Status 
+    GameState, db
 } from './game';
 import levelsJson from '../../../__fixtures__/levels.json';
 
@@ -10,7 +10,7 @@ const { loadLevels, loadLevel, fireTank, moveTank, renderFrame } = actions;
 
 const testLevels = (tests: any[][], state: GameState) => {
     map(tests, ([records, result, coord], i: number) => {
-        const level = i % state.levels.length;
+        const level = i % db.levels.length;
         if (records) {
             let lastDirection = CMD.UP;
             map(Array.from(records), (cmd: RecordCMD) => {
@@ -36,7 +36,7 @@ const testLevels = (tests: any[][], state: GameState) => {
                 }
             });
             test(
-                `${level + 1}: ${state.levels[level].levelName} ${records}`, 
+                `${level + 1}: ${db.levels[level].levelName} ${records}`, 
                 ((s, r, coord) => {
                     return () => {
                         expect(s.status).toBe(r);
@@ -47,7 +47,7 @@ const testLevels = (tests: any[][], state: GameState) => {
                 }
             )(state, result, coord));
         }
-        state = reducer(state, loadLevel((level + 1) % state.levels.length));
+        state = reducer(state, loadLevel((level + 1) % db.levels.length));
     });
 };
 
