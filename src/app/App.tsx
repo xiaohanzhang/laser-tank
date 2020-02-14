@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 
 import './App.css';
-import { loadLevels } from '../features/game/game';
+import gameSlice from '../features/game/game';
 import Board from '../features/game/Board';
 import MenuBar from '../features/ui/MenuBar';
 import ControlPanel from '../features/ui/ControlPanel';
@@ -14,7 +14,7 @@ const App: React.FC = () => {
       const levels = JSON.parse(localStorage.getItem('levels') ?? '');
       const levelIndex = JSON.parse(localStorage.getItem('levelIndex') ?? '0');
       if (levels) {
-        dispatch(loadLevels({ levels, levelIndex }));
+        dispatch(gameSlice.actions.loadLevels({ levels, levelIndex }));
       }
     } catch (error) {
       alert(`failed to load levels: ${error}`);

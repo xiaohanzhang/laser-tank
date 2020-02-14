@@ -3,7 +3,6 @@
     * export/upload level
     * import/export replay
 * map editor
-* go to clicked position
 * mobile control panel up/down/left/right
 * popup after finish last level
 * info panel size

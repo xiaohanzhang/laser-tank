@@ -178,7 +178,7 @@ describe('tiles test', () => {
             'WWS1WWNN',
             'NNNNNNEE',
         ], (records, i) => {
-            console.log(`${i + 1}: ${state.levels[i].levelName}`);
+            // console.log(`${i + 1}: ${state.levels[i].levelName}`);
             if (records) {
                 let lastDirection = CMD.UP;
                 map(Array.from(records), (cmd: RecordCMD) => {
@@ -202,11 +202,11 @@ describe('tiles test', () => {
                     while (state.rendering && state.status === 'PLAYING') {
                         state = reducer(state, renderFrame());
                     }
-                    console.log(`${cmd}: `, state.tank);
+                    // console.log(`${cmd}: `, state.tank);
                 });
                 expect(state.status).toBe('WIN');
             } else {
-                console.log(`skip: ${i + 1} ${state.levels[i].levelName}`);
+                // console.log(`skip: ${i + 1} ${state.levels[i].levelName}`);
             }
             state = reducer(state, loadLevel(i + 1));
         });

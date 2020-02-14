@@ -3,30 +3,43 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { RootState } from '../../app/rootReducer';
-import { exec, db, CMD, isDirection, TLEVEL, loadLevel } from '../game/game';
+import gameSlice, { exec, db, CMD, isDirection, TLEVEL } from '../game/game';
 import uiSlice from '../ui/ui';
 
 import './ControlPanel.css';
 
 const { setRenderInterval } = uiSlice.actions;
 
-const LevelsPopup = ({ levels, onClick }: { levels: TLEVEL[], onClick: (i: number) => void }) => {
+const LevelsPopup = (
+    { levels, onClick, onClose }: 
+    { levels: TLEVEL[], onClick: (i: number) => void , onClose: () => void}
+) => {
     return <div className="LevelsPopup">
+        <div style={{ 
+            fontSize: 20, textAlign: 'end', cursor: 'pointer', 
+            position: 'sticky', top: 0,
+        }} onClick={onClose}>
+            &times;
+        </div>
         <table>
-            <tr>
-                <th>Lev #</th>
-                <th>Name</th>
-                <th>Author</th>
-            </tr>
-            {map(levels, (level, i) => {
-                return <tr className={i % 2 === 0 ? 'odd' : 'even'} onClick={() => {
-                    onClick(i);
-                }}>
-                    <td>{i + 1}</td>
-                    <td>{level.levelName}</td>
-                    <td>{level.author}</td>
+            <thead>
+                <tr>
+                    <th>Lev #</th>
+                    <th>Name</th>
+                    <th>Author</th>
                 </tr>
-            })}
+            </thead>
+            <tbody>
+                {map(levels, (level, i) => {
+                    return <tr key={i} className={i % 2 === 0 ? 'odd' : 'even'} onClick={() => {
+                        onClick(i);
+                    }}>
+                        <td>{i + 1}</td>
+                        <td>{level.levelName}</td>
+                        <td>{level.author}</td>
+                    </tr>
+                })}
+            </tbody>
         </table>
     </div>
 }
@@ -36,9 +49,8 @@ export default () => {
     const game = useSelector((state: RootState) => state.game);
     const ui = useSelector((state: RootState) => state.ui);
     const [showPopup, setShowPopup] = useState(false);
-    const { levelIndex, levels, positionSaved, frameIndex } = game;
+    const { levelIndex, level, positionSaved, frameIndex } = game;
     const { record } = db;
-    const level = get(levels, [levelIndex]);
     let lastCmd = CMD.UP;
     let numShoot = 0;
     let numMove = 0;
@@ -51,10 +63,6 @@ export default () => {
             lastCmd = cmd;
         }
     });
-
-    const debouncedSetRenderInterval = debounce((renderInterval) => {
-        dispatch(setRenderInterval(renderInterval));
-    }, 500);
 
     return <div className="control-panel">
         <div className="info" style={{ position: 'relative' }}>
@@ -77,6 +85,7 @@ export default () => {
                     // top: '59%', left: '5%', height: '8%', width: '90%',
                     top: 144, left: 9, height: 20, width: 160,
                     textAlign: 'center', color: '#0df90a',
+                    fontSize: level.author.length > 20 ? 11 : 14
                 }}>{level.author}</div>
                 {/* <div>{level.scoreDifficulty}</div> */}
                 <div style={{ 
@@ -144,16 +153,19 @@ export default () => {
                 <div>
                     <input style={{ flex: 3 }} value={ui.renderInterval} 
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                            debouncedSetRenderInterval(toNumber(e.target.value));
+                            dispatch(setRenderInterval(toNumber(e.target.value)));
                         }}
                     />
                     <span>ms</span>
                 </div>
             </div>
         </div>
-        {showPopup && <LevelsPopup levels={levels} onClick={(i) => {
-            dispatch(loadLevel(i));
-            setShowPopup(false);
-        }}/>}
+        {showPopup && <LevelsPopup levels={db.levels} 
+            onClose={() => setShowPopup(false)}
+            onClick={(i) => {
+                dispatch(gameSlice.actions.loadLevel(i));
+                setShowPopup(false);
+            }}
+        />}
     </div>
 }

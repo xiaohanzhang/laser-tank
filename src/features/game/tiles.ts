@@ -45,7 +45,7 @@ export const sameCoord = (p1: Position | null, p2: Position | null): boolean => 
 }
 
 // get direction of p2 relative to p1
-export const getDirection = (p1: Position, p2: Position): DIRECTION | null => {
+export const getDirection = (p1: Coordinate, p2: Coordinate): DIRECTION | null => {
     if (p1.x !== p2.x || p1.y !== p2.y) {
         if (p1.x === p2.x) {
             return p1.y > p2.y ? CMD.UP : CMD.DOWN;
@@ -86,7 +86,7 @@ const forEachTile = (board: Board, position: Position, callback: (tile: Tile, po
     }
 }
 
-export const isAvailable = (position: Position, board: Board): boolean => {
+export const isAvailable = (position: Coordinate, board: Board): boolean => {
     const { x, y } = position;
     const target = get(board, `${y}.${x}`);
     return !!(target && !target.object);
@@ -110,9 +110,12 @@ export interface Tile {
 
 export type Board = Tile[][]; 
 
-export interface Position {
+export interface Coordinate {
     x: number,
     y: number,
+}
+
+export interface Position extends Coordinate {
     direction: DIRECTION,
 }
 
