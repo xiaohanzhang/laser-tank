@@ -3,22 +3,29 @@ import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 
 import gameSlice from '../../features/game/game';
-import { openDataFile } from '../../features/game/files';
+import { openDataFile, openReplayFile } from '../../features/game/files';
 
 import './MenuBar.css';
 
 export default () => {
     const dispatch = useDispatch();
+    const { actions } = gameSlice;
     const [currentMenu, setMenu] = useState<null|{ menu: any, top: number, left: number}>(null);
 
-    const handleFile = (file: File) => {
+    const handleFile = (file: File, fileType: string) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             if (e.target?.result) {
-                dispatch(gameSlice.actions.loadLevels({
-                    levels: openDataFile(e.target?.result as ArrayBuffer),
-                    levelIndex: 0
-                }));
+                const buffer = e.target?.result as ArrayBuffer
+                if (fileType === 'lvl') {
+                    dispatch(actions.loadLevels({
+                        levels: openDataFile(buffer),
+                        levelIndex: 0
+                    }));
+                } else {
+                    const { records } = openReplayFile(buffer);
+                    dispatch(actions.pendingMoves(records));
+                }
             }
         };
         reader.readAsArrayBuffer(file);
@@ -28,27 +35,41 @@ export default () => {
         {map([
             {
                 name: 'Game',
-                items: [
-                    {
-                        render: () => {
-                            return <div>
-                                <label>
-                                    Open Data File
-                                    <input id="fileInput" type="file" 
-                                        style={{display: 'none'}} 
-                                        onChange={(e) => {
-                                            const files = e.currentTarget.files;
-                                            if (files?.length) {
-                                                handleFile(files[0]);
-                                            }
-                                            setMenu(null);
-                                        }}
-                                    />
-                                </label>
-                            </div>
-                        },
+                items: [{
+                    render: () => {
+                        return <div>
+                            <label>
+                                Open Data File
+                                <input type="file" style={{display: 'none'}} 
+                                    onChange={(e) => {
+                                        const files = e.currentTarget.files;
+                                        if (files?.length) {
+                                            handleFile(files[0], 'lvl');
+                                        }
+                                        setMenu(null);
+                                    }}
+                                />
+                            </label>
+                        </div>
                     },
-                ],
+                }, {
+                    render: () => {
+                        return <div>
+                            <label>
+                                Open Playback File
+                                <input type="file" style={{display: 'none'}} 
+                                    onChange={(e) => {
+                                        const files = e.currentTarget.files;
+                                        if (files?.length) {
+                                            handleFile(files[0], 'lpb');
+                                        }
+                                        setMenu(null);
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    },
+                }],
             },
             {
                 name: 'Options',

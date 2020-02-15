@@ -1,8 +1,5 @@
 import { map } from 'lodash';
-import gameSlice, { 
-    CMD, FIRE_DIRECTION, RecordCMD, initialState, isDirection, DIRECTION, 
-    GameState, db
-} from './game';
+import gameSlice, { initialState, isDirection, BoardCMD, GameState, db } from './game';
 import levelsJson from '../../../__fixtures__/levels.json';
 
 const { reducer, actions } = gameSlice;
@@ -12,23 +9,10 @@ const testLevels = (tests: any[][], state: GameState) => {
     map(tests, ([records, result, coord], i: number) => {
         const level = i % db.levels.length;
         if (records) {
-            let lastDirection = CMD.UP;
-            map(Array.from(records), (cmd: RecordCMD) => {
+            map(Array.from(records), (cmd: BoardCMD) => {
                 if (isDirection(cmd)) {
                     state = reducer(state, moveTank(cmd));
-                    lastDirection = cmd;
                 } else {
-                    const fireMap: {[key in FIRE_DIRECTION]: DIRECTION} = {
-                        [CMD.FIRE_UP]: CMD.UP,
-                        [CMD.FIRE_DOWN]: CMD.DOWN,
-                        [CMD.FIRE_LEFT]: CMD.LEFT,
-                        [CMD.FIRE_RIGHT]: CMD.RIGHT,
-                    };
-                    const direction = fireMap[cmd];
-                    if (lastDirection !== direction) {
-                        state = reducer(state, moveTank(direction));
-                        lastDirection = direction;
-                    } 
                     state = reducer(state, fireTank());
                 }
                 while (state.rendering && state.status === 'PLAYING') {
@@ -85,118 +69,105 @@ describe('tiles test', () => {
         }));
 
         map([
-            'W2EEE',        // 1
-            'EE3N0NSSNNEE',
+            'W EEE',        //  
+            'EE N NSSNNEE',
             'EEWWEE',
             'NN',
             'NN',
             'NNNNNN',
-            'N0N',
+            'N N',
             'NNSS',
-            'NS1WWE3NNEE',
-            'NS1EENNEEE',
-            'S1NN0N0N0N0N0N0N', // 11
-            'S1E3N0NNNN',
-            'S11SSN0SS',
+            'NS WWE NNEE',
+            'NS EENNEEE',
+            'S NN N N N N N N', //   
+            'S E N NNNN',
+            'S  SSN SS',
             'NSS',
-            '00000W22222S1111EES111111NNEE',
-            '0WE3S1W2WW',
-            'WW2NNNNN',
-            'WWNNWWNNWWNNWWNNWWNNWWNNW2WNN',
-            'WW2NNNN0EESS',
-            'WW2NNNNEEE',
-            'NE33EESSEE',   // 21
+            '     W     S    EES      NNEE',
+            ' WE S W WW',
+            'WW NNNNN',
+            'WWNNWWNNWWNNWWNNWWNNWWNNW WNN',
+            'WW NNNN EESS',
+            'WW NNNNEEE',
+            'NE  EESSEE',   //   
             'EENNNNWWNNN',
             'EEEEEEEENNNNNNNNNNNNWWWNN',
-            'W2NN',
-            'WWSN000SSEE',
-            '00EEEN0EEN0NNEEN0WWSSSSEEN000WWWN000WWWNNN0NNNEE',
+            'W NN',
+            'WWSN   SSEE',
+            '  EEEN EEN NNEEN WWSSSSEEN   WWWN   WWWNNN NNNEE',
             '',
             'EENNNNEE',
-            '0NEE',
-            '0N00EEE',
-            '0W2E3NNWWW',
-            'E3NNSS',
-            'E3W2NNN',
-            'E3W2NNWW',
-            'S1SEENNWW',
-            'S1SEESSWW', 
-            'W2NE3333WWEEWW',
+            ' NEE',
+            ' N  EEE',
+            ' W E NNWWW',
+            'E NNSS',
+            'E W NNN',
+            'E W NNWW',
+            'S SEENNWW',
+            'S SEESSWW', 
+            'W NE    WWEEWW',
             'EENNEE',
-            '0W2WEEW2WWWSS',
-            '00N00NN',  // 40
+            ' W WEEW WWWSS',
+            '  N  NN',  // 4 
             'EEENN',
-            'N0NNWW2WWSSSEE',
-            'EEES1WW',
-            '0WWNNSS',
-            '0WWW',
-            '0NN00N',
-            '0NWWWWW2N0NSSNNN',
-            'E3SSSS',
-            'NNWWS1SEESSW222WWWWS1W2SSN0NS1W2SSN0NS1W2SSN0NS1W2SSN0NS1W2SSN0NS1W2SSN0NS1EEEESS',
-            'W2NNN',
-            'W2SSWWWEESS',
-            'W2SS1EESS',
-            'NW2SS',
-            '0WW',
-            'W2NNWWW2NNS1WW',
-            'W2NNNWWWEENNEES1SS',
+            'N NNWW WWSSSEE',
+            'EEES WW',
+            ' WWNNSS',
+            ' WWW',
+            ' NN  N',
+            ' NWWWWW N NSSNNN',
+            'E SSSS',
+            'NNWWS SEESSW   WWWWS W SSN NS W SSN NS W SSN NS W SSN NS W SSN NS W SSN NS EEEESS',
+            'W NNN',
+            'W SSWWWEESS',
+            'W SS EESS',
+            'NW SS',
+            ' WW',
+            'W NNWWW NNS WW',
+            'W NNNWWWEENNEES SS',
             'WWWNNNN', // multiple solutions
-            'NNNNWWWWS1W2W', // multiple solutions
+            'NNNNWWWWS W W', // multiple solutions
             'WWSSWWWWWWNNNNEEEEEESSS',
             'EENNNEESS',
             'EEESSEENN',
             'SSWWNN',
-            'W22E3WWNN',
-            'EEN0WWSSNN',
-            'NWWS1EESSSW22NNEESSWW',
-            'E3ESS1N0N',
-            'E3EESS1E3N0EE',
-            'WWN0NEEE3EE',
-            'SSSSSSE3ES1WWSSSE33NNNNNEES111SSWWSSSE33SSSEEEEEENNW2SSEEENNW22WNNNNW2SSSSSWWWWWWWNNNNNNEES11SWWSSSE33SSSEEEEN0EEENNW2WSSWWWWNNNNNNNNNEEES1SW2NNWWWWSSSEEN00SSSSSSSEEEN0WWWNNE3NNNNNNNNEEES1SE3NNWWWWNNE33333333SSSSSSSSSSEEEEN0NEEEN00WWWWWNNNNNNNNEEES1NNE33333EEEESSSW2NNWWWWWWWSSSSSEEEEEN00WWWWWNNNNNNEEEE333EEE333EEEEE',
+            'W  E WWNN',
+            'EEN WWSSNN',
+            'NWWS EESSSW  NNEESSWW',
+            'E ESS N N',
+            'E EESS E N EE',
+            'WWN NEEE EE',
+            'SSSSSSE ES WWSSSE  NNNNNEES   SSWWSSSE  SSSEEEEEENNW SSEEENNW  WNNNNW SSSSSWWWWWWWNNNNNNEES  SWWSSSE  SSSEEEEN EEENNW WSSWWWWNNNNNNNNNEEES SW NNWWWWSSSEEN  SSSSSSSEEEN WWWNNE NNNNNNNNEEES SE NNWWWWNNE        SSSSSSSSSSEEEEN NEEEN  WWWWWNNNNNNNNEEES NNE     EEEESSSW NNWWWWWWWSSSSSEEEEEN  WWWWWNNNNNNEEEE   EEE   EEEEE',
             '',
-            'NS1SW2SSEESS',
+            'NS SW SSEESS',
             'SSS',
-            '0WWWN00WWWNNNE33NNE3NNE333NNSSSSSSSEESSSSWW',
-            'S1W2SSS',
+            ' WWWN  WWWNNNE  NNE NNE   NNSSSSSSSEESSSSWW',
+            'S W SSS',
             'EESSS', // multiple solutions
-            'SSEEEEEEEEENNNW222SSSWWWWWWWWWNNNN',
-            'EEENNW2WSSSW2222NNNNW2SSW2WWSSSN0WW', // multiple solutions
+            'SSEEEEEEEEENNNW   SSSWWWWWWWWWNNNN',
+            'EEENNW WSSSW    NNNNW SSW WWSSSN WW', // multiple solutions
             'SSWWWWWWWWWNNNNNNNEEE',
             'NNNNNWWEEE', // multiple solutions
-            'EEEEEEEEENNNWWS11SSWWWWWSSWW',
-            'SSN0NNEESSSWWWNNWW',
-            'SSN0NNEENNNNNNNWWWSSSWW',
-            'SSN0NNEENNNNWWWWSSS',
-            'SSN0NNEENNNNWWWSSSWW',
-            '0E3EN0WWW22N00NNEE',
-            'SSWWWNNE3SSEEEN0000WWN0EENNNNN',
-            'NNNNWWWWSSSW2NNNEEEESSSSSWWEE',
-            'WWWWS111EEEESSWW',
-            'NNNNEEEEEEEEEEESSSSSWW2WW',
+            'EEEEEEEEENNNWWS  SSWWWWWSSWW',
+            'SSN NNEESSSWWWNNWW',
+            'SSN NNEENNNNNNNWWWSSSWW',
+            'SSN NNEENNNNWWWWSSS',
+            'SSN NNEENNNNWWWSSSWW',
+            ' E EN WWW  N  NNEE',
+            'SSWWWNNE SSEEEN    WWN EENNNNN',
+            'NNNNWWWWSSSW NNNEEEESSSSSWWEE',
+            'WWWWS   EEEESSWW',
+            'NNNNEEEEEEEEEEESSSSSWW WW',
             'NEEENNEEENNEEEEWWWWWWWWWWWW',
-            'WWS1WWNN',
+            'WWS WWNN',
             'NNNNNNEE',
         ], (records, i) => {
             // console.log(`${i + 1}: ${state.levels[i].levelName}`);
             if (records) {
-                let lastDirection = CMD.UP;
-                map(Array.from(records), (cmd: RecordCMD) => {
+                map(Array.from(records), (cmd: BoardCMD) => {
                     if (isDirection(cmd)) {
                         state = reducer(state, moveTank(cmd));
-                        lastDirection = cmd;
                     } else {
-                        const fireMap: {[key in FIRE_DIRECTION]: DIRECTION} = {
-                            [CMD.FIRE_UP]: CMD.UP,
-                            [CMD.FIRE_DOWN]: CMD.DOWN,
-                            [CMD.FIRE_LEFT]: CMD.LEFT,
-                            [CMD.FIRE_RIGHT]: CMD.RIGHT,
-                        };
-                        const direction = fireMap[cmd];
-                        if (lastDirection !== direction) {
-                            state = reducer(state, moveTank(direction));
-                            lastDirection = direction;
-                        } 
                         state = reducer(state, fireTank());
                     }
                     while (state.rendering && state.status === 'PLAYING') {

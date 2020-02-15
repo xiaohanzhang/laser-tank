@@ -1,4 +1,4 @@
-import { get, map, debounce, toNumber } from 'lodash';
+import { map, toNumber, isEmpty } from 'lodash';
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -49,7 +49,7 @@ export default () => {
     const game = useSelector((state: RootState) => state.game);
     const ui = useSelector((state: RootState) => state.ui);
     const [showPopup, setShowPopup] = useState(false);
-    const { levelIndex, level, positionSaved, frameIndex } = game;
+    const { levelIndex, level, positionSaved, frameIndex, pendingMoves, autoRec } = game;
     const { record } = db;
     let lastCmd = CMD.UP;
     let numShoot = 0;
@@ -106,7 +106,7 @@ export default () => {
         </div>
         <div className="control">
             {map([
-                [
+                isEmpty(pendingMoves) && [
                     { name: 'Undo', cmd: CMD.UNDO, disabled: frameIndex > 0 }, 
                     { name: 'Hint', onClick: () => {
                         if (level?.hint) {
@@ -114,22 +114,35 @@ export default () => {
                         }
                     }},
                 ],
-                [
+                isEmpty(pendingMoves) && [
                     { name: 'Save', disabled: frameIndex > 0, cmd: CMD.SAVE_POSITION }, 
                     { 
                         name: 'Restore', cmd: CMD.RESTORE_POSITION, 
                         disabled: frameIndex > 0 && !positionSaved 
                     },
                 ],
-                [{ name: 'Restart', cmd: CMD.RESTART }, { name: 'Load Level', onClick: () => {
-                    setShowPopup(true);
-                }}],
-                [{ name: '<< Level', cmd: CMD.PREV_LEVEL }, { name: 'Level >>', cmd: CMD.NEXT_LEVEL }],
-                [
+                isEmpty(pendingMoves) && [
+                    { name: 'Restart', cmd: CMD.RESTART }, 
+                    { name: 'Load Level', onClick: () => { setShowPopup(true); }}
+                ],
+                isEmpty(pendingMoves) && [
+                    { name: '<< Level', cmd: CMD.PREV_LEVEL }, 
+                    { name: 'Level >>', cmd: CMD.NEXT_LEVEL }
+
+                ],
+                !isEmpty(pendingMoves) && [
+                    { name: autoRec ? 'Pause' : 'Auto', cmd: CMD.TOGGLE_AUTO_REC }, 
+                    { name: 'Close Rec', cmd: CMD.CLOSE_REC }, 
+                ],
+                !isEmpty(pendingMoves) && !autoRec && [
+                    { name: '<< Step', cmd: CMD.PREV_REC }, 
+                    { name: 'Step >>', cmd: CMD.NEXT_REC }, 
+                ],
+                isEmpty(pendingMoves) && [
                     { name: '<< Frame', cmd: CMD.PREV_FRAME }, 
                     { name: 'Frame >>', cmd: CMD.NEXT_FRAME, disabled: frameIndex === 0 }
                 ],
-            ], (row, i) => {
+            ].filter(Boolean), (row: [], i) => {
                 return <div key={i}>
                     {map(row, (
                         { name, cmd, onClick, disabled }: 

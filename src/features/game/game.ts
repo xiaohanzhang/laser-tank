@@ -22,10 +22,6 @@ export enum CMD {
     DOWN = 'S',
     LEFT = 'W',
     RIGHT = 'E',
-    FIRE_UP = '0',
-    FIRE_DOWN = '1',
-    FIRE_LEFT = '2',
-    FIRE_RIGHT = '3',
     FIRE = ' ',
     UNDO = 'UNDO',
     PAUSE = 'PAUSE',
@@ -33,6 +29,10 @@ export enum CMD {
     PREV_LEVEL = 'PREV_LEVEL',
     PREV_FRAME = 'PREV_FRAME',
     NEXT_FRAME = 'NEXT_FRAME',
+    PREV_REC = 'PREV_REC',
+    NEXT_REC = 'NEXT_REC',
+    CLOSE_REC = 'CLOSE_REC',
+    TOGGLE_AUTO_REC = 'TOGGLE_AUTO_REC',
     HINT = 'HINT',
     RESTART = 'RESTART',
     SAVE_POSITION = 'SAVE_POSITION',
@@ -43,13 +43,11 @@ export type DIRECTION = CMD.UP|CMD.DOWN|CMD.LEFT|CMD.RIGHT;
 export const isDirection = (cmd: CMD): cmd is DIRECTION => {
     return [CMD.UP, CMD.DOWN, CMD.LEFT, CMD.RIGHT].includes(cmd);
 }
-export type FIRE_DIRECTION = CMD.FIRE_UP|CMD.FIRE_DOWN|CMD.FIRE_LEFT|CMD.FIRE_RIGHT;
 
-type BoardCMD = DIRECTION|CMD.FIRE;
-const isBoardCMD = (cmd: CMD): cmd is BoardCMD => {
+export type BoardCMD = DIRECTION|CMD.FIRE;
+export const isBoardCMD = (cmd: CMD): cmd is BoardCMD => {
     return isDirection(cmd) || cmd === CMD.FIRE;
 }
-export type RecordCMD = DIRECTION|FIRE_DIRECTION;
 
 export interface PlayField {
     board: Board,
@@ -70,33 +68,25 @@ export interface GameState extends PlayField {
     positionSaved: boolean,
     frameIndex: number,
     pendingMoves: BoardCMD[],
+    pendingMoveIndex: number,
+    autoRec: boolean,
     level: TLEVEL | null,
 };
 
 export type Status = "WIN" | "FAIL" | "PLAYING"
 
 class DB {
-    record: RecordCMD[] = [];
+    record: BoardCMD[] = [];
     history: PlayField[] = [];
     frames: PlayField[] = [];
     levels: TLEVEL[] = [];
-    snapshoot: { state: PlayField, record: RecordCMD[] } | null = null;
+    snapshoot: { state: PlayField, record: BoardCMD[] } | null = null;
 
     save(state: GameState, cmd: BoardCMD) {
         const { 
             board, tank, prevTank, laser, pending, pendingTunnels, status, levelIndex
         } = state;
-        if (cmd === CMD.FIRE) {
-            const fireMap: {[key in DIRECTION]: RecordCMD} = {
-                [CMD.UP]: CMD.FIRE_UP,
-                [CMD.DOWN]: CMD.FIRE_DOWN,
-                [CMD.LEFT]: CMD.FIRE_LEFT,
-                [CMD.RIGHT]: CMD.FIRE_RIGHT,
-            };
-            this.record.push(fireMap[tank.direction]);
-        } else {
-            this.record.push(cmd);
-        }
+        this.record.push(cmd);
         this.history.push({ 
             board, tank, prevTank, laser, pending, pendingTunnels, status, levelIndex
         });
@@ -139,6 +129,8 @@ export const initialState: GameState = {
     pause: false,
     positionSaved: false,
     pendingMoves: [],
+    pendingMoveIndex: 0,
+    autoRec: false,
     frameIndex: 0,
     level: null,
 };
@@ -215,8 +207,18 @@ const gameSlice = createSlice({
                 timer: state.timer + 1,
             }
         },
+        setAutoRec(state, action: PayloadAction<boolean>) {
+            state.autoRec = action.payload;
+        },
         pendingMoves(state, action: PayloadAction<BoardCMD[]>) {
+            state.pendingMoveIndex = 0;
             state.pendingMoves = action.payload;
+            state.autoRec = false;
+        },
+        setPendingMove(state, action: PayloadAction<number>) {
+            if (get(state.pendingMoves, action.payload)) {
+                state.pendingMoveIndex = action.payload;
+            }
         },
         moveTank(state, action: PayloadAction<DIRECTION>) {
             const { tank } = state;
@@ -329,10 +331,26 @@ export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => 
     move();
 }
 
+const autoPlayRec  = (): AppThunk => async (dispatch, getState) => {
+    const { ui, game } = getState();
+    const { autoRec, rendering, pendingMoves, pendingMoveIndex } = game;
+    if (autoRec && pendingMoveIndex < pendingMoves.length) {
+        const start = Date.now();
+        if (!rendering) {
+            dispatch(exec(CMD.NEXT_REC));
+        }
+        await sleep(max([ui.renderInterval - (Date.now() - start), 0]) || 0);
+        dispatch(autoPlayRec());
+    }
+}
+
 export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
     const actions = gameSlice.actions;
     const { game } = getState();
-    const { tank, board, status, pending, laser, levelIndex, frameIndex } = game;
+    const { 
+        tank, board, status, pending, laser, levelIndex, frameIndex, 
+        pendingMoves, pendingMoveIndex, autoRec
+    } = game;
     if (cmd === CMD.PREV_FRAME) {
         dispatch(actions.setFrame(
             min([frameIndex + 1, db.frames.length - 1]) || 
@@ -353,6 +371,20 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
         dispatch(actions.loadLevel(levelIndex + 1));
     } else if (cmd === CMD.PREV_LEVEL) {
         dispatch(actions.loadLevel(levelIndex - 1));
+    } else if (cmd === CMD.TOGGLE_AUTO_REC) {
+        dispatch(actions.setAutoRec(!autoRec));
+        dispatch(autoPlayRec());
+    } else if (cmd === CMD.PREV_REC) {
+        dispatch(actions.setPendingMove(pendingMoveIndex - 1));
+        dispatch(actions.undo());
+    } else if (cmd === CMD.NEXT_REC) {
+        const move = get(pendingMoves, [pendingMoveIndex]);
+        if (move) {
+            dispatch(actions.setPendingMove(pendingMoveIndex + 1));
+            dispatch(exec(move));
+        }
+    } else if (cmd === CMD.CLOSE_REC) {
+        dispatch(actions.pendingMoves([]));
     } else if (isBoardCMD(cmd)) {
         if (frameIndex > 0) {
             dispatch(actions.setFrame(0));
