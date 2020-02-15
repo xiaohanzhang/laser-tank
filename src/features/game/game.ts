@@ -1,4 +1,4 @@
-import { each, toInteger, get, map, max, min } from 'lodash';
+import { each, isEmpty, toInteger, get, map, max, min } from 'lodash';
 import { createSlice, PayloadAction  } from '@reduxjs/toolkit';
 import { AppThunk } from '../../app/store';
 
@@ -277,7 +277,6 @@ export const renderFrame = (): AppThunk => (dispatch, getState) => {
 }
 
 export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => {
-    const actions = gameSlice.actions;
     const { game } = getState();
     const { tank, board } = game;
     const toId = ({x, y}: Coordinate) => {
@@ -318,7 +317,7 @@ export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => 
                     if (direction === tank.direction) {
                         path.shift();
                     }
-                    dispatch(actions.moveTank(direction));
+                    dispatch(exec(direction));
                 } else {
                     path.shift();
                 }
@@ -344,13 +343,35 @@ const autoPlayRec  = (): AppThunk => async (dispatch, getState) => {
     }
 }
 
+const handleBoardCMD = (cmd: CMD): AppThunk => (dispatch, getState) => {
+    const actions = gameSlice.actions;
+    const { game } = getState();
+    const { tank, board, status, pending, laser, frameIndex } = game;
+    if (isBoardCMD(cmd)) {
+        if (frameIndex > 0) {
+            dispatch(actions.setFrame(0));
+        } else if (pending.length === 0 && !laser && status === 'PLAYING') {
+            const target = nextPosition(tank);
+            if (cmd === CMD.FIRE) {
+                db.save(game, cmd);
+                dispatch(actions.fireTank());
+                db.saveFrame(game);
+            } else if (
+                isDirection(cmd) && 
+                (tank.direction !== cmd || isAvailable(target, board))
+            ) {
+                db.save(game, cmd);
+                dispatch(actions.moveTank(cmd));
+                db.saveFrame(game);
+            }
+        }
+    }
+}
+
 export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
     const actions = gameSlice.actions;
     const { game } = getState();
-    const { 
-        tank, board, status, pending, laser, levelIndex, frameIndex, 
-        pendingMoves, pendingMoveIndex, autoRec
-    } = game;
+    const { levelIndex, frameIndex, pendingMoves, pendingMoveIndex, autoRec } = game;
     if (cmd === CMD.PREV_FRAME) {
         dispatch(actions.setFrame(
             min([frameIndex + 1, db.frames.length - 1]) || 
@@ -381,28 +402,12 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
         const move = get(pendingMoves, [pendingMoveIndex]);
         if (move) {
             dispatch(actions.setPendingMove(pendingMoveIndex + 1));
-            dispatch(exec(move));
+            dispatch(handleBoardCMD(move));
         }
     } else if (cmd === CMD.CLOSE_REC) {
         dispatch(actions.pendingMoves([]));
-    } else if (isBoardCMD(cmd)) {
-        if (frameIndex > 0) {
-            dispatch(actions.setFrame(0));
-        } else if (pending.length === 0 && !laser && status === 'PLAYING') {
-            const target = nextPosition(tank);
-            if (cmd === CMD.FIRE) {
-                db.save(game, cmd);
-                dispatch(actions.fireTank());
-                db.saveFrame(game);
-            } else if (
-                isDirection(cmd) && 
-                (tank.direction !== cmd || isAvailable(target, board))
-            ) {
-                db.save(game, cmd);
-                dispatch(actions.moveTank(cmd));
-                db.saveFrame(game);
-            }
-        }
+    } else if (isBoardCMD(cmd) && isEmpty(pendingMoves)) {
+        dispatch(handleBoardCMD(cmd));
     }
 };
 
