@@ -1,6 +1,6 @@
-import { map, sum, range, chunk, trim } from 'lodash';
+import { map, sum, range, chunk } from 'lodash';
 
-import { CMD } from './game';
+import { CMD, BoardCMD } from './game';
 import { Board, Position, GameBackgrounds, GameObject } from './tiles';
 import { saveDataMap } from './consts';
 
@@ -10,6 +10,14 @@ export interface TLEVEL {
     hint: string,
     author: string,
     scoreDifficulty: number,
+}
+
+export interface TRECORDREC	{
+	levelName: string,  // char LName[31];  // Level Name
+	author: string,     // char Author[31];	// Author of the recording
+	levelIndex: number,      // WORD Level;		// Level Number
+    // size: number,       // WORD Size;		// Size of Data -- Data to fallow
+    records: BoardCMD[],
 }
 
 export const parseBoard = (tLevel: TLEVEL): { board: Board, tank: Position } => {
@@ -82,3 +90,41 @@ export const openDataFile = (buffer: ArrayBuffer): TLEVEL[] => {
     });
     return levels;
 };
+
+export const openReplayFile = (buffer: ArrayBuffer): TRECORDREC => {
+    const tRecordRec = {
+        levelName: 31,
+        author: 31,
+        levelIndex: 2,
+        size: 2,
+    };
+    const data: any = {};
+    let cursor = 0;
+    map(tRecordRec, (size, key) => {
+        data[key] = buffer.slice(cursor, cursor + size);
+        cursor += size;
+    });
+
+    // 32 fire, 37 W, 38 N, 39 E, 40 S, 
+    return {
+        levelName: toString(data.levelName),
+        author: toString(data.author),
+        levelIndex: new Uint16Array(data.levelIndex)[0],
+        records: map(
+            new Uint8Array(buffer.slice(cursor, cursor + new Uint16Array(data.size)[0])),
+            (v) => {
+                const fireMap: {[key: number]: BoardCMD} = {
+                    32: CMD.FIRE,
+                    37: CMD.LEFT,
+                    38: CMD.UP,
+                    39: CMD.RIGHT,
+                    40: CMD.DOWN,
+                };
+                if (!(v in fireMap)) {
+                    throw new Error(`wrong data in rec file: ${v}`);
+                }
+                return fireMap[v];
+            }
+        ),
+    }
+}

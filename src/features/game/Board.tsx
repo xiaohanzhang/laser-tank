@@ -3,7 +3,9 @@ import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
 import { RootState } from '../../app/rootReducer';
-import gameSlice, { goto, exec, renderFrame, BOARD_SIZE, CMD, GameState, DIRECTION } from './game';
+import gameSlice, { 
+    goto, exec, renderFrame, BOARD_SIZE, CMD, GameState, DIRECTION, 
+} from './game';
 import { Tile, GameBackgrounds, GameObject } from './tiles';
 import './Board.css';
 
@@ -163,7 +165,7 @@ export default () => {
     const game = useSelector((state: RootState) => state.game)
     const ui = useSelector((state: RootState) => state.ui)
     const dispatch = useDispatch();
-    const { status, levelIndex } = game;
+    const { status, levelIndex, } = game;
     const debounceRenderFrame = debounce(() => {
         return dispatch(renderFrame());
     }, ui.renderInterval);
