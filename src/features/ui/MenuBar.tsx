@@ -2,7 +2,8 @@ import { map } from 'lodash';
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 
-import gameSlice from '../../features/game/game';
+import gameSlice, { exec, CMD } from '../../features/game/game';
+import uiSlice from '../../features/ui/ui';
 import { openDataFile, openReplayFile } from '../../features/game/files';
 
 import './MenuBar.css';
@@ -24,7 +25,7 @@ export default () => {
                     }));
                 } else {
                     const { records } = openReplayFile(buffer);
-                    dispatch(actions.pendingMoves(records));
+                    dispatch(exec(CMD.LOAD_REC, records));
                 }
             }
         };
@@ -69,12 +70,19 @@ export default () => {
                             </label>
                         </div>
                     },
+                }, {
+                    name: 'Save Recording',
+                    onClick: () => {
+                        dispatch(exec(CMD.EXPORT_REC))
+                    },
                 }],
             },
             {
                 name: 'Options',
                 items: [
-                    {name: 'Animation'},
+                    {name: 'Animation', onClick: () => { 
+                        dispatch(uiSlice.actions.toggleAnimation());
+                    }},
                     // {name: 'Sound'},
                 ],
             },
@@ -119,9 +127,9 @@ export default () => {
             top: currentMenu.top,
             left: currentMenu.left,
         }}>
-            {map(currentMenu?.menu.items, ({ name, render }, i) => {
+            {map(currentMenu?.menu.items, ({ name, render, ...props }, i) => {
                 return <li key={i}>
-                    {render ? render() : name}
+                    {render ? render() : <div {...props}>{name}</div>}
                 </li>;
             })}
         </ul>}

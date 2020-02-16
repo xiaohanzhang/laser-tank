@@ -3,7 +3,7 @@ import { createSlice, PayloadAction  } from '@reduxjs/toolkit';
 import { AppThunk } from '../../app/store';
 
 import { nextPosition, isAvailable, Board, Coordinate, Position, GameObject, getDirection, GameBackgrounds, } from './tiles';
-import { parseBoard } from './files';
+import { parseBoard, exportReplayFile } from './files';
 import { aStar } from '../../utils/algorithm';
 import { sleep } from '../../utils/async';
 
@@ -29,10 +29,12 @@ export enum CMD {
     PREV_LEVEL = 'PREV_LEVEL',
     PREV_FRAME = 'PREV_FRAME',
     NEXT_FRAME = 'NEXT_FRAME',
+    LOAD_REC = 'LOAD_REC',
     PREV_REC = 'PREV_REC',
     NEXT_REC = 'NEXT_REC',
     CLOSE_REC = 'CLOSE_REC',
     TOGGLE_AUTO_REC = 'TOGGLE_AUTO_REC',
+    EXPORT_REC = 'EXPORT_REC',
     HINT = 'HINT',
     RESTART = 'RESTART',
     SAVE_POSITION = 'SAVE_POSITION',
@@ -218,6 +220,10 @@ const gameSlice = createSlice({
         setPendingMove(state, action: PayloadAction<number>) {
             if (get(state.pendingMoves, action.payload)) {
                 state.pendingMoveIndex = action.payload;
+            } else {
+                state.pendingMoveIndex = 0;
+                state.pendingMoves = [];
+                state.autoRec = false;
             }
         },
         moveTank(state, action: PayloadAction<DIRECTION>) {
@@ -332,8 +338,8 @@ export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => 
 
 const autoPlayRec  = (): AppThunk => async (dispatch, getState) => {
     const { ui, game } = getState();
-    const { autoRec, rendering, pendingMoves, pendingMoveIndex } = game;
-    if (autoRec && pendingMoveIndex < pendingMoves.length) {
+    const { autoRec, rendering, pendingMoves, pendingMoveIndex, status } = game;
+    if (autoRec && pendingMoveIndex < pendingMoves.length && status === 'PLAYING') {
         const start = Date.now();
         if (!rendering) {
             dispatch(exec(CMD.NEXT_REC));
@@ -368,9 +374,10 @@ const handleBoardCMD = (cmd: CMD): AppThunk => (dispatch, getState) => {
     }
 }
 
-export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
+export const exec = (cmd: CMD, payload?: any): AppThunk => (dispatch, getState) => {
     const actions = gameSlice.actions;
     const { game } = getState();
+    let username = '';
     const { levelIndex, frameIndex, pendingMoves, pendingMoveIndex, autoRec } = game;
     if (cmd === CMD.PREV_FRAME) {
         dispatch(actions.setFrame(
@@ -392,6 +399,9 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
         dispatch(actions.loadLevel(levelIndex + 1));
     } else if (cmd === CMD.PREV_LEVEL) {
         dispatch(actions.loadLevel(levelIndex - 1));
+    } else if (cmd === CMD.LOAD_REC) {
+        dispatch(actions.loadLevel(levelIndex));
+        dispatch(actions.pendingMoves(payload));
     } else if (cmd === CMD.TOGGLE_AUTO_REC) {
         dispatch(actions.setAutoRec(!autoRec));
         dispatch(autoPlayRec());
@@ -406,6 +416,16 @@ export const exec = (cmd: CMD): AppThunk => (dispatch, getState) => {
         }
     } else if (cmd === CMD.CLOSE_REC) {
         dispatch(actions.pendingMoves([]));
+    } else if (cmd === CMD.EXPORT_REC) {
+        const level = db.levels[levelIndex];
+        if (level) {
+            exportReplayFile({
+                levelName: level.levelName,
+                author: username,
+                levelIndex: levelIndex + 1,
+                records: db.record,
+            });
+        }
     } else if (isBoardCMD(cmd) && isEmpty(pendingMoves)) {
         dispatch(handleBoardCMD(cmd));
     }
