@@ -1,11 +1,10 @@
 ## TODO
 * menu
     * export/upload level
-    * import/export replay
+    * upload replay
 * map editor
 * mobile control panel up/down/left/right
 * popup after finish last level
-* info panel size
 
 ## Basic Rules
 map has 3 layers

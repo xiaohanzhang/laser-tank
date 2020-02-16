@@ -56,75 +56,146 @@ export const parseBoard = (tLevel: TLEVEL): { board: Board, tank: Position } => 
     return { board, tank };
 }
 
-const toString = (buffer: ArrayBuffer) => {
+const ab2str = (buffer: ArrayBuffer) => {
     return String.fromCharCode.apply(
         null, Array.from(new Uint8Array(buffer)).filter(Boolean)
     );
 }
 
+const ab2int = (buffer: ArrayBuffer) => {
+    return new Uint16Array(buffer)[0];
+}
+
+const ab2array = (buffer: ArrayBuffer) => {
+    return Array.from(new Uint8Array(buffer));
+}
+
+const str2ab = (str: string, size: number) => {
+    const view = new Uint8Array(size);
+    for (let i = 0; i < str.length && i < size; i++) {
+        view[i] = str.charCodeAt(i);
+    }
+    return view.buffer;
+}
+
+const int2ab = (n: number, size: number) => {
+    const view = new Uint16Array(1);
+    view[0] = n;
+    return view.buffer;
+}
+
+const array2ab = (arr: [], size: number) => {
+    const view = new Uint8Array(size);
+    arr.forEach((v, i) => {
+        if (i < size) {
+            view[i] = v;
+        }
+    });
+    return view.buffer;
+}
+
+const tLevelSize = {
+    board: 16 * 16,
+    levelName: 31,
+    hint: 256,
+    author: 31,
+    scoreDifficulty: 2,
+}; // 576
 export const openDataFile = (buffer: ArrayBuffer): TLEVEL[] => {
-    const tLevel = {
-        board: 16 * 16,
-        levelName: 31,
-        hint: 256,
-        author: 31,
-        scoreDifficulty: 2,
-    }; // 576
-    const sizeOfTLevel = sum(Object.values(tLevel));
+    console.log(buffer);
+    const sizeOfTLevel = sum(Object.values(tLevelSize));
 
     const levels = map(range(Math.floor(buffer.byteLength / sizeOfTLevel)), (i): TLEVEL => {
         let cursor = sizeOfTLevel * i;
         const data: any = {};
-        map(tLevel, (size, key) => {
+        map(tLevelSize, (size, key) => {
             data[key] = buffer.slice(cursor, cursor + size);
             cursor += size;
         });
 
         return {
             board: chunk(Array.from(new Uint8Array(data.board)), 16),
-            levelName: toString(data.levelName),
-            hint: toString(data.hint),
-            author: toString(data.author),
+            levelName: ab2str(data.levelName),
+            hint: ab2str(data.hint),
+            author: ab2str(data.author),
             scoreDifficulty: new Uint16Array(data.scoreDifficulty)[0],
         }
     });
     return levels;
 };
 
+const tRecordRecSize: {[key: string]: [
+    number, 
+    (b: ArrayBuffer) => any, 
+    (v: any, size: number) => ArrayBuffer 
+]} = {
+    levelName: [31, ab2str, str2ab],
+    author: [31, ab2str, str2ab],
+    levelIndex: [2, ab2int, int2ab],
+    size: [2, ab2int, int2ab],
+};
 export const openReplayFile = (buffer: ArrayBuffer): TRECORDREC => {
-    const tRecordRec = {
-        levelName: 31,
-        author: 31,
-        levelIndex: 2,
-        size: 2,
-    };
     const data: any = {};
     let cursor = 0;
-    map(tRecordRec, (size, key) => {
-        data[key] = buffer.slice(cursor, cursor + size);
+    map(tRecordRecSize, ([size, func], key) => {
+        data[key] = func(buffer.slice(cursor, cursor + size));
         cursor += size;
     });
 
     // 32 fire, 37 W, 38 N, 39 E, 40 S, 
+    const recordsSize = data.size;
+    delete data.size;
     return {
-        levelName: toString(data.levelName),
-        author: toString(data.author),
-        levelIndex: new Uint16Array(data.levelIndex)[0],
+        ...data,
         records: map(
-            new Uint8Array(buffer.slice(cursor, cursor + new Uint16Array(data.size)[0])),
+            new Uint8Array(buffer.slice(cursor, cursor + recordsSize)),
             (v) => {
-                const fireMap: {[key: number]: BoardCMD} = {
+                const cmdMap: {[key: number]: BoardCMD} = {
                     32: CMD.FIRE,
                     37: CMD.LEFT,
                     38: CMD.UP,
                     39: CMD.RIGHT,
                     40: CMD.DOWN,
                 };
-                if (!(v in fireMap)) {
+                if (!(v in cmdMap)) {
                     throw new Error(`wrong data in rec file: ${v}`);
                 }
-                return fireMap[v];
+                return cmdMap[v];
             }
         ),
     }
+}
+
+export const exportReplayFile = (tRecordRec: TRECORDREC) => {
+    const cmdMap: {[key in BoardCMD]: number} = {
+        [CMD.FIRE]: 32,
+        [CMD.LEFT]: 37,
+        [CMD.UP]: 38,
+        [CMD.RIGHT]: 39,
+        [CMD.DOWN]: 40,
+    };
+    const records = map(tRecordRec.records, (cmd) => {
+        return cmdMap[cmd];
+    });
+    const data: any = {
+        ...tRecordRec,
+        levelIndex: 26,
+        size: records.length,
+        records,
+    };
+    const dataSize: {[key: string]: [
+        number, 
+        (b: ArrayBuffer) => any, 
+        (v: any, size: number) => ArrayBuffer 
+    ]} = {
+        ...tRecordRecSize,
+        records: [records.length, ab2array, array2ab],
+    };
+    const buffers = map(dataSize, ([size, fromArrayBuffer, toArrayBuffer], key) => {
+        return toArrayBuffer(data[key], size);
+    });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob(buffers, {type: "application/octet-stream"}));
+    link.download = `level_${tRecordRec.levelIndex}.lpb`;
+    link.click();
 }

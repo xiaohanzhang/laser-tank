@@ -4,8 +4,6 @@
   "private": true,
   "homepage": "https://xiaohanzhang.github.io/laser-tank/",
   "dependencies": {
-    "@material-ui/core": "^4.9.0",
-    "@material-ui/icons": "^4.5.1",
     "@reduxjs/toolkit": "^1.2.3",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.3.2",

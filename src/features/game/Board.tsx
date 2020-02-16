@@ -11,6 +11,7 @@ import './Board.css';
 
 interface BoardProps {
     game: GameState,
+    animation: boolean,
 }
 
 interface BoardState {
@@ -75,19 +76,21 @@ class Board extends React.Component<BoardProps, BoardState> {
         window.addEventListener('resize', this.handleResize);
         const animations = ['bg0', 'bg1', 'bg2'];
         this.interval = setInterval(async () => {
-            const el = this.boardRef.current;
-            if (el) {
-                const backgrounds = el.querySelectorAll([
-                    '.ANTI_TANK_N', '.ANTI_TANK_E', '.ANTI_TANK_S', '.ANTI_TANK_W',
-                    '.TANK_MOVER_N', '.TANK_MOVER_S', '.TANK_MOVER_W', '.TANK_MOVER_E',
-                    '.FLAG', '.WATER',
-                ].join(', '));
-                const bg = animations.shift() || '';
-                backgrounds.forEach((background) => {
-                    background.classList.remove(...animations);
-                    background.classList.add(bg);
-                });
-                animations.push(bg);
+            if (this.props.animation) {
+                const el = this.boardRef.current;
+                if (el) {
+                    const backgrounds = el.querySelectorAll([
+                        '.ANTI_TANK_N', '.ANTI_TANK_E', '.ANTI_TANK_S', '.ANTI_TANK_W',
+                        '.TANK_MOVER_N', '.TANK_MOVER_S', '.TANK_MOVER_W', '.TANK_MOVER_E',
+                        '.FLAG', '.WATER',
+                    ].join(', '));
+                    const bg = animations.shift() || '';
+                    backgrounds.forEach((background) => {
+                        background.classList.remove(...animations);
+                        background.classList.add(bg);
+                    });
+                    animations.push(bg);
+                }
             }
         }, 600);
         this.handleResize();
@@ -203,5 +206,5 @@ export default () => {
         }
     }, [dispatch, levelIndex, status, debounceRenderFrame])
 
-    return <Board game={game}/>
+    return <Board game={game} animation={ui.animation}/>
 }
