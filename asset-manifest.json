@@ -1,23 +1,23 @@
 {
   "files": {
     "main.css": "/laser-tank/static/css/main.db027e03.chunk.css",
-    "main.js": "/laser-tank/static/js/main.ba39f0c8.chunk.js",
-    "main.js.map": "/laser-tank/static/js/main.ba39f0c8.chunk.js.map",
+    "main.js": "/laser-tank/static/js/main.43db957f.chunk.js",
+    "main.js.map": "/laser-tank/static/js/main.43db957f.chunk.js.map",
     "runtime-main.js": "/laser-tank/static/js/runtime-main.d7c6593c.js",
     "runtime-main.js.map": "/laser-tank/static/js/runtime-main.d7c6593c.js.map",
-    "static/js/2.4bc24a57.chunk.js": "/laser-tank/static/js/2.4bc24a57.chunk.js",
-    "static/js/2.4bc24a57.chunk.js.map": "/laser-tank/static/js/2.4bc24a57.chunk.js.map",
+    "static/js/2.a558fc0f.chunk.js": "/laser-tank/static/js/2.a558fc0f.chunk.js",
+    "static/js/2.a558fc0f.chunk.js.map": "/laser-tank/static/js/2.a558fc0f.chunk.js.map",
     "index.html": "/laser-tank/index.html",
-    "precache-manifest.21a7dff45ccd124a64b4b20586753e09.js": "/laser-tank/precache-manifest.21a7dff45ccd124a64b4b20586753e09.js",
+    "precache-manifest.b55b4d80eecf24802451780b0e56bde2.js": "/laser-tank/precache-manifest.b55b4d80eecf24802451780b0e56bde2.js",
     "service-worker.js": "/laser-tank/service-worker.js",
     "static/css/main.db027e03.chunk.css.map": "/laser-tank/static/css/main.db027e03.chunk.css.map",
-    "static/js/2.4bc24a57.chunk.js.LICENSE": "/laser-tank/static/js/2.4bc24a57.chunk.js.LICENSE",
+    "static/js/2.a558fc0f.chunk.js.LICENSE": "/laser-tank/static/js/2.a558fc0f.chunk.js.LICENSE",
     "static/media/ControlPanel.css": "/laser-tank/static/media/control.dde3d91a.png"
   },
   "entrypoints": [
     "static/js/runtime-main.d7c6593c.js",
-    "static/js/2.4bc24a57.chunk.js",
+    "static/js/2.a558fc0f.chunk.js",
     "static/css/main.db027e03.chunk.css",
-    "static/js/main.ba39f0c8.chunk.js"
+    "static/js/main.43db957f.chunk.js"
   ]
 }
