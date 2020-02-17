@@ -27,17 +27,18 @@ export enum GameObstacles {
     ANTI_TANK_W = 38,
     ANTI_TANK_E = 39,
     ANTI_TANK_DEAD_N = 40,
-    ANTI_TANK_DEAD_S,
-    ANTI_TANK_DEAD_W,
-    ANTI_TANK_DEAD_E,
-    MIRROR_NW,
-    MIRROR_NE,
-    MIRROR_SE,
-    MIRROR_SW,
-    ROTARY_MIRROR_NW,
-    ROTARY_MIRROR_NE,
-    ROTARY_MIRROR_SE,
-    ROTARY_MIRROR_SW,
+    ANTI_TANK_DEAD_S = 41,
+    ANTI_TANK_DEAD_W = 42,
+    ANTI_TANK_DEAD_E = 43,
+    MIRROR_NW = 44,
+    MIRROR_NE = 45,
+    MIRROR_SE = 46,
+    MIRROR_SW = 47,
+    ROTARY_MIRROR_NW = 48,
+    ROTARY_MIRROR_NE = 49,
+    ROTARY_MIRROR_SE = 50,
+    ROTARY_MIRROR_SW = 51,
+    TANT = 52,
 }
 
 export const sameCoord = (p1: Position | null, p2: Position | null): boolean => {
@@ -168,6 +169,7 @@ export class GameObject {
             [GameObstacles.ROTARY_MIRROR_NE]: RotaryMirrorNE,
             [GameObstacles.ROTARY_MIRROR_SE]: RotaryMirrorSE,
             [GameObstacles.ROTARY_MIRROR_SW]: RotaryMirrorSW,
+            [GameObstacles.TANT]: Tank,
         }[obstacle];
     }
 
@@ -341,6 +343,10 @@ class GameObstacle extends GameObject {
             }
         }
     }
+}
+
+class Tank extends GameObstacle {
+    css = 'tank TANK_N';
 }
 
 class Bricks extends GameObstacle {

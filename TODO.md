@@ -5,6 +5,8 @@
 * map editor
 * mobile control panel up/down/left/right
 * popup after finish last level
+* editor: support press mouse for bulk editing
+* editor: shift
 
 ## Basic Rules
 map has 3 layers

@@ -4,50 +4,39 @@ import { useSelector, useDispatch } from 'react-redux';
 
 import { RootState } from '../../app/rootReducer';
 import gameSlice, { 
-    goto, exec, renderFrame, BOARD_SIZE, CMD, GameState, DIRECTION, 
+    fire, clickBoard, exec, renderFrame, BOARD_SIZE, CMD, GameState, DIRECTION, 
 } from './game';
-import { Tile, GameBackgrounds, GameObject } from './tiles';
+import { Tile } from './tiles';
+import BoardTile from './BoardTile';
 import './Board.css';
 
 interface BoardProps {
     game: GameState,
     animation: boolean,
+    dispatch: any,
 }
 
 interface BoardState {
     limit: number,
 }
 
-const BoardTile = React.memo((
-    { x, y, tile, tileSize }: { x: number, y: number, tile: Tile, tileSize: number }
-) => {
-    const dispatch = useDispatch();
-    return <div 
-        style={{ width: tileSize, height: tileSize }} 
-        className={[
-            'board-object',
-            GameObject.getBackgroundCss(tile),
-        ].filter(Boolean).join(' ')}
-        onClick={() => {
-            dispatch(goto(x, y));
-        }}
-    >
-        {tile.background === GameBackgrounds.TUNNEL && <div style={{ 
-            background: 'transparent',
-            borderRadius: '50%',
-            border: `${tileSize/8}px solid #${tile.color}`,
-            boxSizing: 'border-box',
-        }}/>}
-        {tile.object && <div className={GameObject.getObstacleCss(tile)}/>} 
-    </div>
-});
-
 const BoardRow = React.memo((
     { row, rowIndex, tileSize }: {row: Tile[], rowIndex: number, tileSize: number}
 ) => {
+    const dispatch = useDispatch();
     return <div className="row">
         {map(row, (tile, j) => {
-            return <BoardTile key={j} tile={tile} tileSize={tileSize} x={j} y={rowIndex}/>
+            const x = j;
+            const y = rowIndex;
+            return <BoardTile key={j} tile={tile} tileSize={tileSize}
+                onClick={(e) => {
+                    dispatch(clickBoard(x, y));
+                }}
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    dispatch(fire(x, y));
+                }}
+            />
         })}
     </div>
 });
@@ -65,7 +54,7 @@ const directionToStr = (direction: DIRECTION) => {
 class Board extends React.Component<BoardProps, BoardState> {
     state = { limit: 0 };
     boardRef = React.createRef<HTMLInputElement>();
-    interval!: NodeJS.Timeout;
+    interval!: number;
 
     constructor(props: BoardProps) {
         super(props)
@@ -115,7 +104,7 @@ class Board extends React.Component<BoardProps, BoardState> {
     }
 
     render() {
-        const { game } = this.props;
+        const { game, dispatch } = this.props;
         const { limit } = this.state;
         const { board, tank, laser } = game;
         const tileSize = Math.floor(limit / (BOARD_SIZE + 2));
@@ -140,9 +129,15 @@ class Board extends React.Component<BoardProps, BoardState> {
                         left: -tileSize, top: i * tileSize
                     }}>{i + 1}</div>
                 })}
-                <div className={`tank TANK_${directionToStr(tank.direction)}`} style={{ 
-                    left: tank.x * tileSize, top: tank.y * tileSize, ...tileStyle
-                }}/>
+                <div className={`tank TANK_${directionToStr(tank.direction)}`} 
+                    style={{ 
+                        left: tank.x * tileSize, top: tank.y * tileSize, ...tileStyle
+                    }}
+                    onContextMenu={(e) => {
+                        e.preventDefault();
+                        dispatch(fire(tank.x, tank.y));
+                    }}
+                />
                 {laser && <div className={`laser ${directionToStr(laser.direction)}`} 
                     style={[CMD.UP, CMD.DOWN].includes(laser.direction) ? { 
                         left: laser.x * tileSize + (tileSize / 2 - 2), 
@@ -206,5 +201,5 @@ export default () => {
         }
     }, [dispatch, levelIndex, status, debounceRenderFrame])
 
-    return <Board game={game} animation={ui.animation}/>
+    return <Board game={game} animation={ui.animation} dispatch={dispatch}/>
 }
