@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../app/rootReducer';
 import gameSlice, { exec, db, CMD, isDirection, TLEVEL } from '../game/game';
 import uiSlice from '../ui/ui';
+import EditorControl from './EditorPanel';
 
 import './ControlPanel.css';
 
@@ -49,7 +50,7 @@ export default () => {
     const game = useSelector((state: RootState) => state.game);
     const ui = useSelector((state: RootState) => state.ui);
     const [showPopup, setShowPopup] = useState(false);
-    const { levelIndex, level, positionSaved, frameIndex, pendingMoves, autoRec } = game;
+    const { levelIndex, level, positionSaved, frameIndex, pendingMoves, autoRec, editor } = game;
     const { record } = db;
     let lastCmd = CMD.UP;
     let numShoot = 0;
@@ -104,7 +105,7 @@ export default () => {
                 <div>{}</div>
             </>}
         </div>
-        <div className="control">
+        {editor ? <EditorControl/> : <div className="control">
             {map([
                 isEmpty(pendingMoves) && [
                     { name: 'Undo', cmd: CMD.UNDO, disabled: frameIndex > 0 }, 
@@ -172,7 +173,7 @@ export default () => {
                     <span>ms</span>
                 </div>
             </div>
-        </div>
+        </div>}
         {showPopup && <LevelsPopup levels={db.levels} 
             onClose={() => setShowPopup(false)}
             onClick={(i) => {

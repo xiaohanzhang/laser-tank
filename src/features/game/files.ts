@@ -1,7 +1,7 @@
-import { map, sum, range, chunk } from 'lodash';
+import { get, map, sumBy, range, chunk } from 'lodash';
 
 import { CMD, BoardCMD } from './game';
-import { Board, Position, GameBackgrounds, GameObject } from './tiles';
+import { Board, Position, GameBackgrounds, GameObstacles, GameObject, Coordinate } from './tiles';
 import { saveDataMap } from './consts';
 
 export interface TLEVEL {
@@ -20,10 +20,20 @@ export interface TRECORDREC	{
     records: BoardCMD[],
 }
 
+const TUNNEL_COLORS = [
+    'FB2D0F', '36FA0E', '1538FF', '36FCFF', 'FFFB0A', 'F542F9', 'FFFFFF', 'A1A1A1'
+];
+
+export const getTunnelColor = (id: number) => {
+    return TUNNEL_COLORS[id];
+}
+
+export const getTunnelId = (color: string) => {
+    const index = TUNNEL_COLORS.indexOf(color);
+    return index > -1 ? index + 64 : 64;
+}
+
 export const parseBoard = (tLevel: TLEVEL): { board: Board, tank: Position } => {
-    const colors = [
-        'FB2D0F', '36FA0E', '1538FF', '36FCFF', 'FFFB0A', 'F542F9', 'FFFFFF', 'A1A1A1'
-    ];
     const board: Board = GameObject.createEmptyBoard();
     const tank: Position = {x: 0, y: 0, direction: CMD.UP};
 
@@ -38,7 +48,7 @@ export const parseBoard = (tLevel: TLEVEL): { board: Board, tank: Position } => 
                 }
             } else if (cell > 63 && cell < 96) {
                 board[j][i] = {
-                    color: colors[(cell & 15) >> 1],
+                    color: getTunnelColor((cell & 15) >> 1),
                     background: GameBackgrounds.TUNNEL,
                 };
             } else {
@@ -84,41 +94,47 @@ const int2ab = (n: number, size: number) => {
     return view.buffer;
 }
 
-const array2ab = (arr: [], size: number) => {
+const array2ab = (arr: any[], size: number) => {
     const view = new Uint8Array(size);
     arr.forEach((v, i) => {
         if (i < size) {
             view[i] = v;
         }
     });
+    console.log(arr);
     return view.buffer;
 }
 
-const tLevelSize = {
-    board: 16 * 16,
-    levelName: 31,
-    hint: 256,
-    author: 31,
-    scoreDifficulty: 2,
+const board2ab = (board: number[][], size: number) => {
+    return array2ab(([] as number[]).concat.apply([], board), size);
+}
+
+const tLevelSize: {[key: string]: [
+    number, 
+    (b: ArrayBuffer) => any, 
+    (v: any, size: number) => ArrayBuffer 
+]} = {
+    board: [16 * 16, ab2array, board2ab],
+    levelName: [31, ab2str, str2ab],
+    hint: [256, ab2str, str2ab],
+    author: [31, ab2str, str2ab],
+    scoreDifficulty: [2, ab2int, int2ab],
 }; // 576
+
 export const openDataFile = (buffer: ArrayBuffer): TLEVEL[] => {
-    console.log(buffer);
-    const sizeOfTLevel = sum(Object.values(tLevelSize));
+    const sizeOfTLevel = sumBy(Object.values(tLevelSize), (v) => v[0]);
 
     const levels = map(range(Math.floor(buffer.byteLength / sizeOfTLevel)), (i): TLEVEL => {
         let cursor = sizeOfTLevel * i;
         const data: any = {};
-        map(tLevelSize, (size, key) => {
-            data[key] = buffer.slice(cursor, cursor + size);
+        map(tLevelSize, ([size, func], key) => {
+            data[key] = func(buffer.slice(cursor, cursor + size));
             cursor += size;
         });
 
         return {
-            board: chunk(Array.from(new Uint8Array(data.board)), 16),
-            levelName: ab2str(data.levelName),
-            hint: ab2str(data.hint),
-            author: ab2str(data.author),
-            scoreDifficulty: new Uint16Array(data.scoreDifficulty)[0],
+            ...data,
+            board: chunk(data.board, 16),
         }
     });
     return levels;
@@ -166,6 +182,90 @@ export const openReplayFile = (buffer: ArrayBuffer): TRECORDREC => {
     }
 }
 
+const exportFile = (buffers: ArrayBuffer[], name: string) => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob(buffers, {type: "application/octet-stream"}));
+    link.download = name;
+    link.click();
+}
+
+export const exportLevelFile = (data: { 
+    board: Board, 
+    tank: Coordinate, 
+    levelName: string,
+    hint: string,
+    author: string,
+    scoreDifficulty: number,
+}) => {
+    const { board, tank, levelName, hint, author, scoreDifficulty } = data;
+    const tLevelBoard = range(0, 16).map(() => {
+        return range(0, 16).map(() => {
+            return 0;
+        });
+    });
+    const obstacleMap = {
+        [GameObstacles.BRICKS]: 6,
+        [GameObstacles.SOLID_BLOCK]: 4,
+        [GameObstacles.CRYSTAL_BLOCK]: 19,
+        [GameObstacles.MOVABLE_BLOCK]: 5,
+        [GameObstacles.ANTI_TANK_N]: 7,
+        [GameObstacles.ANTI_TANK_S]: 9,
+        [GameObstacles.ANTI_TANK_W]: 10,
+        [GameObstacles.ANTI_TANK_E]: 8,
+        [GameObstacles.ANTI_TANK_DEAD_N]: 7,
+        [GameObstacles.ANTI_TANK_DEAD_S]: 9,
+        [GameObstacles.ANTI_TANK_DEAD_W]: 10,
+        [GameObstacles.ANTI_TANK_DEAD_E]: 8,
+        [GameObstacles.MIRROR_NW]: 11,
+        [GameObstacles.MIRROR_NE]: 12,
+        [GameObstacles.MIRROR_SE]: 13,
+        [GameObstacles.MIRROR_SW]: 14,
+        [GameObstacles.ROTARY_MIRROR_NW]: 20,
+        [GameObstacles.ROTARY_MIRROR_NE]: 21,
+        [GameObstacles.ROTARY_MIRROR_SE]: 22,
+        [GameObstacles.ROTARY_MIRROR_SW]: 23,
+        [GameObstacles.TANT]: 1,
+    };
+    const backgroundMap = {
+        [GameBackgrounds.FLAG]: 2,
+        [GameBackgrounds.DIRT]: 0,
+        [GameBackgrounds.WATER]: 3, 
+        [GameBackgrounds.MOVABLE_BLOCK_WATER]: 3,
+        [GameBackgrounds.ICE]: 24,
+        [GameBackgrounds.THIN_ICE]: 25,
+        [GameBackgrounds.TANK_MOVER_N]: 15,
+        [GameBackgrounds.TANK_MOVER_S]: 17,
+        [GameBackgrounds.TANK_MOVER_E]: 16,
+        [GameBackgrounds.TANK_MOVER_W]: 18,
+        [GameBackgrounds.TUNNEL]: 64,
+    };
+
+    board.forEach((row, i) => {
+        return row.forEach((tile, j) => {
+            let cell = (tile.object && get(obstacleMap, tile.object)) ||
+                get(backgroundMap, tile.background)
+            ;
+            if (tile.background === GameBackgrounds.TUNNEL) {
+                cell = getTunnelId(tile.color || '');
+            }
+            tLevelBoard[j][i] = cell;
+        });
+    });
+    tLevelBoard[tank.y][tank.x] = 1;
+    const tLevel: any = {
+        board: tLevelBoard,
+        levelName,
+        hint,
+        author,
+        scoreDifficulty,
+    };
+
+    const buffers = map(tLevelSize, ([size, fromArrayBuffer, toArrayBuffer], key) => {
+        return toArrayBuffer(tLevel[key], size);
+    });
+    exportFile(buffers, `${levelName}.lvl`);
+}
+
 export const exportReplayFile = (tRecordRec: TRECORDREC) => {
     const cmdMap: {[key in BoardCMD]: number} = {
         [CMD.FIRE]: 32,
@@ -194,8 +294,5 @@ export const exportReplayFile = (tRecordRec: TRECORDREC) => {
     const buffers = map(dataSize, ([size, fromArrayBuffer, toArrayBuffer], key) => {
         return toArrayBuffer(data[key], size);
     });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob(buffers, {type: "application/octet-stream"}));
-    link.download = `level_${tRecordRec.levelIndex}.lpb`;
-    link.click();
+    exportFile(buffers, `level_${tRecordRec.levelIndex}.lpb`);
 }

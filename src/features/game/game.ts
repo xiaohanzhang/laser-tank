@@ -2,8 +2,10 @@ import { each, isEmpty, toInteger, get, map, max, min } from 'lodash';
 import { createSlice, PayloadAction  } from '@reduxjs/toolkit';
 import { AppThunk } from '../../app/store';
 
-import { nextPosition, isAvailable, Board, Coordinate, Position, GameObject, getDirection, GameBackgrounds, } from './tiles';
-import { parseBoard, exportReplayFile } from './files';
+import { 
+    nextPosition, isAvailable, Board, Coordinate, Position, GameObject, getDirection, GameBackgrounds, Tile, GameObstacles, sameCoord
+} from './tiles';
+import { parseBoard, exportReplayFile, exportLevelFile } from './files';
 import { aStar } from '../../utils/algorithm';
 import { sleep } from '../../utils/async';
 
@@ -35,6 +37,8 @@ export enum CMD {
     CLOSE_REC = 'CLOSE_REC',
     TOGGLE_AUTO_REC = 'TOGGLE_AUTO_REC',
     EXPORT_REC = 'EXPORT_REC',
+    TOGGLE_EDITOR = 'TOGGLE_EDITOR',
+    SAVE_LEVEL = 'SAVE_LEVEL',
     HINT = 'HINT',
     RESTART = 'RESTART',
     SAVE_POSITION = 'SAVE_POSITION',
@@ -72,6 +76,8 @@ export interface GameState extends PlayField {
     pendingMoves: BoardCMD[],
     pendingMoveIndex: number,
     autoRec: boolean,
+    editor: boolean,
+    editorTile: Tile,
     level: TLEVEL | null,
 };
 
@@ -133,6 +139,8 @@ export const initialState: GameState = {
     pendingMoves: [],
     pendingMoveIndex: 0,
     autoRec: false,
+    editor: false,
+    editorTile: { background: GameBackgrounds.DIRT },
     frameIndex: 0,
     level: null,
 };
@@ -226,6 +234,24 @@ const gameSlice = createSlice({
                 state.autoRec = false;
             }
         },
+        toggleEditor(state) {
+            state.editor = !state.editor;
+        },
+        selectEditorTile(state, action: PayloadAction<Tile>) {
+            state.editorTile = action.payload;
+        },
+        edit(state, action: PayloadAction<Coordinate>) {
+            const { tank, board, editorTile } = state;
+            const { x, y } = action.payload;
+            board[y][x] = {...editorTile};
+            if (editorTile.object === GameObstacles.TANT) {
+                delete board[y][x].object;
+                tank.x = x;
+                tank.y = y;
+                tank.direction = CMD.UP;
+            }
+            state.timer += 1;
+        },
         moveTank(state, action: PayloadAction<DIRECTION>) {
             const { tank } = state;
             const cmd = action.payload;
@@ -282,9 +308,43 @@ export const renderFrame = (): AppThunk => (dispatch, getState) => {
     db.saveFrame(getState().game);
 }
 
+export const fire = (x: number, y: number): AppThunk => (dispatch, getState) => {
+    const { game } = getState();
+    const { tank } = game;
+    const xDiff = x - tank.x;
+    const yDiff = y - tank.y;
+    let direction = tank.direction;
+    if (xDiff !== 0 || yDiff !== 0) {
+        if (yDiff >= Math.abs(xDiff)) {
+            direction = CMD.DOWN;
+        } else if (-yDiff >= Math.abs(xDiff)) {
+            direction = CMD.UP;
+        } else if (xDiff > 0) {
+            direction = CMD.RIGHT;
+        } else if (xDiff < 0) {
+            direction = CMD.LEFT;
+        }
+    }
+    if (direction !== tank.direction) {
+        dispatch(handleBoardCMD(direction));
+    }
+    dispatch(handleBoardCMD(CMD.FIRE));
+}
+
+export const clickBoard = (x: number, y: number): AppThunk => (dispatch, getState) => {
+    const { game } = getState();
+    const { editor } = game;
+    if (editor) {
+        dispatch(gameSlice.actions.edit({x, y}));
+    } else {
+        dispatch(goto(x, y));
+    }
+}
+
 export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => {
     const { game } = getState();
     const { tank, board } = game;
+    const goal = {x, y};
     const toId = ({x, y}: Coordinate) => {
         return (y * BOARD_SIZE + x).toString();
     };
@@ -302,9 +362,11 @@ export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => 
         each([{x, y: y - 1}, {x: x + 1, y}, {x, y: y + 1}, {x: x - 1, y}], (neighbor) => {
             const tile = get(board, [neighbor.y, neighbor.x]);
             if (
-                tile && !tile.object && [
-                    GameBackgrounds.DIRT, GameBackgrounds.FLAG, GameBackgrounds.MOVABLE_BLOCK_WATER,
-                ].includes(tile.background)
+                tile && !tile.object && (
+                    sameCoord(goal, neighbor) || [
+                        GameBackgrounds.DIRT, GameBackgrounds.FLAG, GameBackgrounds.MOVABLE_BLOCK_WATER,
+                    ].includes(tile.background)
+                )
             ) {
                 callback(toId(neighbor), 1, hScore(neighbor, tank));
             }
@@ -378,7 +440,7 @@ export const exec = (cmd: CMD, payload?: any): AppThunk => (dispatch, getState) 
     const actions = gameSlice.actions;
     const { game } = getState();
     let username = '';
-    const { levelIndex, frameIndex, pendingMoves, pendingMoveIndex, autoRec } = game;
+    const { levelIndex, frameIndex, pendingMoves, pendingMoveIndex, autoRec, board, tank } = game;
     if (cmd === CMD.PREV_FRAME) {
         dispatch(actions.setFrame(
             min([frameIndex + 1, db.frames.length - 1]) || 
@@ -399,6 +461,17 @@ export const exec = (cmd: CMD, payload?: any): AppThunk => (dispatch, getState) 
         dispatch(actions.loadLevel(levelIndex + 1));
     } else if (cmd === CMD.PREV_LEVEL) {
         dispatch(actions.loadLevel(levelIndex - 1));
+    } else if (cmd === CMD.TOGGLE_EDITOR) {
+        dispatch(actions.toggleEditor());
+    } else if (cmd === CMD.SAVE_LEVEL) {
+        exportLevelFile({
+            board,
+            tank,
+            levelName: payload.levelName,
+            hint: payload.hint || '',
+            author: payload.author,
+            scoreDifficulty: payload.scoreDifficulty,
+        });
     } else if (cmd === CMD.LOAD_REC) {
         dispatch(actions.loadLevel(levelIndex));
         dispatch(actions.pendingMoves(payload));

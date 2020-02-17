@@ -90,6 +90,7 @@ export default () => {
                 name: 'Editor', 
                 onClick: () => {
                     setMenu(null);
+                    dispatch(exec(CMD.TOGGLE_EDITOR))
                 },
             },
             {
@@ -98,6 +99,12 @@ export default () => {
                     {name: 'About'},
                 ],
             },
+            {
+                name: 'GitHub',
+                onClick: () => {
+                    window.open('https://github.com/xiaohanzhang/laser-tank');
+                },
+            }
         ], (menu, i) => {
             const { name, ...props } = menu;
             return <div key={i}
