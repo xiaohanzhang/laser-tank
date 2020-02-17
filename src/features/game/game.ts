@@ -3,7 +3,7 @@ import { createSlice, PayloadAction  } from '@reduxjs/toolkit';
 import { AppThunk } from '../../app/store';
 
 import { 
-    nextPosition, isAvailable, Board, Coordinate, Position, GameObject, getDirection, GameBackgrounds, Tile, GameObstacles
+    nextPosition, isAvailable, Board, Coordinate, Position, GameObject, getDirection, GameBackgrounds, Tile, GameObstacles, sameCoord
 } from './tiles';
 import { parseBoard, exportReplayFile, exportLevelFile } from './files';
 import { aStar } from '../../utils/algorithm';
@@ -344,6 +344,7 @@ export const clickBoard = (x: number, y: number): AppThunk => (dispatch, getStat
 export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => {
     const { game } = getState();
     const { tank, board } = game;
+    const goal = {x, y};
     const toId = ({x, y}: Coordinate) => {
         return (y * BOARD_SIZE + x).toString();
     };
@@ -361,9 +362,11 @@ export const goto = (x: number, y: number): AppThunk => (dispatch, getState) => 
         each([{x, y: y - 1}, {x: x + 1, y}, {x, y: y + 1}, {x: x - 1, y}], (neighbor) => {
             const tile = get(board, [neighbor.y, neighbor.x]);
             if (
-                tile && !tile.object && [
-                    GameBackgrounds.DIRT, GameBackgrounds.FLAG, GameBackgrounds.MOVABLE_BLOCK_WATER,
-                ].includes(tile.background)
+                tile && !tile.object && (
+                    sameCoord(goal, neighbor) || [
+                        GameBackgrounds.DIRT, GameBackgrounds.FLAG, GameBackgrounds.MOVABLE_BLOCK_WATER,
+                    ].includes(tile.background)
+                )
             ) {
                 callback(toId(neighbor), 1, hScore(neighbor, tank));
             }

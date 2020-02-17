@@ -8,7 +8,7 @@ import gameSlice, { CMD, exec } from '../game/game';
 import BoardTile from '../game/BoardTile';
 import { getTunnelColor } from '../game/files';
 import ControlButton from '../../components/ControlButton';
-import Popup from '../../components/Popup';
+import Popup, { PopupHeader } from '../../components/Popup';
 
 const EditorPanel = styled.div`
     display: flex;
@@ -31,7 +31,6 @@ const FormTable = styled.table`
 
     th {
         text-align: left;
-        padding-left: 10px;
     }
 
     td > * {
@@ -45,7 +44,7 @@ const FormTable = styled.table`
 
 const EditorControl = () => {
     const dispatch = useDispatch();
-    const [popup, setPopup] = useState(false);
+    const [showPopup, setShowPopup] = useState(false);
     const formData: {[key: string]: any} = {};
     const handleChange = (field: string) => {
         return (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -131,7 +130,7 @@ const EditorControl = () => {
             {map([
                 [
                     { name: 'Save Level', onClick: () => {
-                        setPopup(true);
+                        setShowPopup(true);
                     }}, 
                     { name: 'Close Editor', cmd: CMD.TOGGLE_EDITOR },
                 ],
@@ -153,8 +152,11 @@ const EditorControl = () => {
                 </div>
             })}
         </div>
-        {popup && <Popup>
-            <FormTable>
+        {showPopup && <Popup>
+            <PopupHeader style={{ fontSize: 20, textAlign: 'end', cursor: 'pointer' }}
+                onClick={() => setShowPopup(false)}
+            >&times;</PopupHeader>
+            <FormTable style={{ padding: '0 15px' }}>
                 <tbody>
                     <tr><th>Level Name: </th><td><input type="text" onChange={handleChange('levelName')}/></td></tr>
                     <tr><th>Author: </th><td><input type="text" onChange={handleChange('author')}/></td></tr>
@@ -189,7 +191,7 @@ const EditorControl = () => {
                                 if (!isEmpty(errors)) {
                                     alert(errors.join('\n'));
                                 } else {
-                                    setPopup(false);
+                                    setShowPopup(false);
                                     dispatch(exec(CMD.SAVE_LEVEL, formData));
                                 }
                             }}>Save Level</ControlButton>

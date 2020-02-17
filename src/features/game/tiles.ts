@@ -41,7 +41,7 @@ export enum GameObstacles {
     TANT = 52,
 }
 
-export const sameCoord = (p1: Position | null, p2: Position | null): boolean => {
+export const sameCoord = (p1: Coordinate | null, p2: Coordinate | null): boolean => {
     return p1 === p2 || (!!p1 && !!p2 && p1.x === p2.x && p1.y === p2.y); 
 }
 
@@ -573,7 +573,7 @@ class Tunnel extends GameBackground {
             each(row, (tile, x) => {
                 if (
                     sameKindTunnel(tile, tunnel) && 
-                    !sameCoord(to, {x, y, direction: CMD.UP}) &&
+                    !sameCoord(to, {x, y}) &&
                     !tile.object
                 ) {
                     tile.object = tunnel.object;
@@ -601,7 +601,7 @@ class Tunnel extends GameBackground {
             each(row, (tile, x) => {
                 if (
                     sameKindTunnel(tile, tunnel) && 
-                    !sameCoord(tank, {x, y, direction: CMD.UP}) &&
+                    !sameCoord(tank, {x, y}) &&
                     !tile.object
                 ) {
                     tank.x = x;
