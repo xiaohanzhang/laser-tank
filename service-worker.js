@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "/laser-tank/precache-manifest.ea375e60cff680f490a73dc79a1387c5.js"
+  "/laser-tank/precache-manifest.0564ae60cb5b2998e7d9de451157017a.js"
 );
 
 self.addEventListener('message', (event) => {

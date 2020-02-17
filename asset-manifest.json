@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/laser-tank/static/css/main.db027e03.chunk.css",
-    "main.js": "/laser-tank/static/js/main.501a1fbd.chunk.js",
-    "main.js.map": "/laser-tank/static/js/main.501a1fbd.chunk.js.map",
+    "main.js": "/laser-tank/static/js/main.776bab01.chunk.js",
+    "main.js.map": "/laser-tank/static/js/main.776bab01.chunk.js.map",
     "runtime-main.js": "/laser-tank/static/js/runtime-main.d7c6593c.js",
     "runtime-main.js.map": "/laser-tank/static/js/runtime-main.d7c6593c.js.map",
     "static/js/2.a558fc0f.chunk.js": "/laser-tank/static/js/2.a558fc0f.chunk.js",
     "static/js/2.a558fc0f.chunk.js.map": "/laser-tank/static/js/2.a558fc0f.chunk.js.map",
     "index.html": "/laser-tank/index.html",
-    "precache-manifest.ea375e60cff680f490a73dc79a1387c5.js": "/laser-tank/precache-manifest.ea375e60cff680f490a73dc79a1387c5.js",
+    "precache-manifest.0564ae60cb5b2998e7d9de451157017a.js": "/laser-tank/precache-manifest.0564ae60cb5b2998e7d9de451157017a.js",
     "service-worker.js": "/laser-tank/service-worker.js",
     "static/css/main.db027e03.chunk.css.map": "/laser-tank/static/css/main.db027e03.chunk.css.map",
     "static/js/2.a558fc0f.chunk.js.LICENSE": "/laser-tank/static/js/2.a558fc0f.chunk.js.LICENSE",
@@ -18,6 +18,6 @@
     "static/js/runtime-main.d7c6593c.js",
     "static/js/2.a558fc0f.chunk.js",
     "static/css/main.db027e03.chunk.css",
-    "static/js/main.501a1fbd.chunk.js"
+    "static/js/main.776bab01.chunk.js"
   ]
 }
