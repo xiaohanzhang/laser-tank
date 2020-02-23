@@ -8,6 +8,7 @@
 * editor: support press mouse for bulk editing
 * editor: shift
 
+# Random thoughts
 ## Basic Rules
 map has 3 layers
 1. tank
@@ -37,5 +38,3 @@ move tank | move laser | move other object | checking whether certain conditions
 tankMover and ice handle shouldCheckTank differently
 tank sinks in different speed: ice->thin == tm->thin == tm->water slower than ice->water
 
-## refactoring
-styles: classnames

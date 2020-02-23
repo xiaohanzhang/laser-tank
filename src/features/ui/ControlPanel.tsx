@@ -2,7 +2,8 @@ import { map, toNumber, isEmpty } from 'lodash';
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { RootState } from '../../app/rootReducer';
+import { RootState } from 'app/rootReducer';
+import Popup from 'components/Popup';
 import gameSlice, { exec, db, CMD, isDirection, TLEVEL } from '../game/game';
 import uiSlice from '../ui/ui';
 import EditorControl from './EditorPanel';
@@ -15,13 +16,7 @@ const LevelsPopup = (
     { levels, onClick, onClose }: 
     { levels: TLEVEL[], onClick: (i: number) => void , onClose: () => void}
 ) => {
-    return <div className="LevelsPopup">
-        <div style={{ 
-            fontSize: 20, textAlign: 'end', cursor: 'pointer', 
-            position: 'sticky', top: 0,
-        }} onClick={onClose}>
-            &times;
-        </div>
+    return <Popup className="LevelsPopup" onClose={onClose}>
         <table>
             <thead>
                 <tr>
@@ -42,7 +37,7 @@ const LevelsPopup = (
                 })}
             </tbody>
         </table>
-    </div>
+    </Popup>
 }
 
 export default () => {

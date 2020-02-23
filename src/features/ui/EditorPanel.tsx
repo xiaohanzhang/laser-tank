@@ -8,7 +8,7 @@ import gameSlice, { CMD, exec } from '../game/game';
 import BoardTile from '../game/BoardTile';
 import { getTunnelColor } from '../game/files';
 import ControlButton from '../../components/ControlButton';
-import Popup, { PopupHeader } from '../../components/Popup';
+import Popup from '../../components/Popup';
 
 const EditorPanel = styled.div`
     display: flex;
@@ -152,10 +152,7 @@ const EditorControl = () => {
                 </div>
             })}
         </div>
-        {showPopup && <Popup>
-            <PopupHeader style={{ fontSize: 20, textAlign: 'end', cursor: 'pointer' }}
-                onClick={() => setShowPopup(false)}
-            >&times;</PopupHeader>
+        {showPopup && <Popup onClose={() => setShowPopup(false)}>
             <FormTable style={{ padding: '0 15px' }}>
                 <tbody>
                     <tr><th>Level Name: </th><td><input type="text" onChange={handleChange('levelName')}/></td></tr>

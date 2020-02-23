@@ -3,34 +3,53 @@
   "version": "0.1.0",
   "private": true,
   "homepage": "https://xiaohanzhang.github.io/laser-tank/",
+  "proxy": "http://localhost:4000",
   "dependencies": {
+    "@apollo/client": "^3.0.0-beta.36",
+    "@koa/router": "^8.0.8",
     "@reduxjs/toolkit": "^1.2.3",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.3.2",
     "@testing-library/user-event": "^7.1.2",
     "@types/jest": "^24.0.0",
+    "@types/koa-router": "^7.4.0",
+    "@types/koa-session": "^5.10.1",
+    "@types/koa__router": "^8.0.2",
     "@types/lodash": "^4.14.149",
+    "@types/mongoose": "^5.7.1",
     "@types/node": "^12.0.0",
     "@types/react": "^16.9.0",
     "@types/react-dom": "^16.9.0",
     "@types/react-redux": "^7.1.6",
+    "@types/react-router-dom": "^5.1.3",
     "@types/styled-components": "^4.4.3",
+    "apollo-server": "^2.10.1",
+    "apollo-server-koa": "^2.10.1",
     "axios": "^0.19.2",
+    "dotenv": "^8.2.0",
+    "graphql": "^14.6.0",
+    "koa": "^2.11.0",
+    "koa-session": "^5.13.1",
+    "mongodb": "^3.5.3",
+    "mongoose": "^5.9.1",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "react-redux": "^7.1.3",
+    "react-router-dom": "^5.1.2",
     "react-scripts": "3.3.0",
     "redux-thunk": "^2.3.0",
     "styled-components": "^5.0.1",
     "typescript": "~3.7.2"
   },
   "scripts": {
-    "start": "PORT=3006 react-scripts start",
-    "build": "react-scripts build",
+    "start": "pm2 start",
+    "build": "yarn run build-ts && react-scripts build",
     "test": "react-scripts test",
     "predeploy": "yarn build",
     "deploy": "gh-pages -d build",
     "github-test": "react-scripts test --watchAll=false",
+    "serve": "node dist/server.js",
+    "build-ts": "tsc -p server",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -49,6 +68,7 @@
     ]
   },
   "devDependencies": {
-    "gh-pages": "^2.2.0"
+    "gh-pages": "^2.2.0",
+    "pm2": "^4.2.3"
   }
 }

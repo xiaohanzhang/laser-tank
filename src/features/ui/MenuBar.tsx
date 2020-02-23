@@ -1,17 +1,24 @@
-import { map } from 'lodash';
+import { map, truncate } from 'lodash';
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
+import { useQuery } from '@apollo/client';
+import SignInPopup from 'components/SignInPopup';
+import axios from 'axios';
 
-import gameSlice, { exec, CMD } from '../../features/game/game';
-import uiSlice from '../../features/ui/ui';
-import { openDataFile, openReplayFile } from '../../features/game/files';
+import { VIEWER } from 'graphqls';
+import gameSlice, { exec, CMD } from 'features/game/game';
+import { openDataFile, openReplayFile } from 'features/game/files';
+import uiSlice from 'features/ui/ui';
 
 import './MenuBar.css';
 
 export default () => {
+    const { data, client, refetch } = useQuery(VIEWER);
     const dispatch = useDispatch();
     const { actions } = gameSlice;
     const [currentMenu, setMenu] = useState<null|{ menu: any, top: number, left: number}>(null);
+    const [showPopup, setShowPopup] = useState(false);
+    const user = data?.viewer;
 
     const handleFile = (file: File, fileType: string) => {
         const reader = new FileReader();
@@ -104,9 +111,30 @@ export default () => {
                 onClick: () => {
                     window.open('https://github.com/xiaohanzhang/laser-tank');
                 },
-            }
+            },
+            {
+                style: {
+                    order: 2,
+                    marginLeft: 'auto',
+                },
+                ... user ? {
+                    name: truncate(user.name, { length: 16 }),
+                    items: [{
+                        name: 'Sign out',
+                        onClick: async () => {
+                            await axios.get('/logout');
+                            refetch();
+                        }
+                    }]
+                } : {
+                    name: 'Sign In',
+                    onClick: () => {
+                        setShowPopup(true);
+                    }
+                }
+            },
         ], (menu, i) => {
-            const { name, ...props } = menu;
+            const { name, items, ...props } = menu;
             return <div key={i}
                 className={`MenuBarItem ${name === currentMenu?.menu.name ? 'active ' : ''}`} 
                 onClick={(event) => {
@@ -140,5 +168,15 @@ export default () => {
                 </li>;
             })}
         </ul>}
+        {showPopup && <SignInPopup 
+            onSignIn={(user) => {
+                if (user) {
+                    client.writeData({data: {viewer: user}});
+                }
+            }}
+            onClose={() => {
+                setShowPopup(false);
+            }}
+        />}
     </div>
 }
